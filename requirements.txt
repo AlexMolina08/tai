@@ -1,0 +1,4 @@
+pdfplumber==0.11.7
+pypdf==6.1.1
+reportlab==4.4.4
+ocrmypdf<17

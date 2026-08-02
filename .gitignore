@@ -1,0 +1,12 @@
+TAI AGE/
+node_modules/
+.venv/
+dist/
+coverage/
+tmp/
+.DS_Store
+*.log
+.env.local
+.env.*.local
+__pycache__/
+*.py[cod]
