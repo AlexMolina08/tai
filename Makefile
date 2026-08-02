@@ -16,7 +16,7 @@ build-bank:
 	$(PYTHON) scripts/build_bank.py
 	$(PYTHON) scripts/validate_bank.py
 
-dev: build-bank
+dev:
 	$(NPM) run dev
 
 test: build-bank

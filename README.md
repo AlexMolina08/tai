@@ -19,10 +19,12 @@ La aplicación queda disponible en `http://localhost:5173`.
 ```bash
 make bootstrap    # crea .venv e instala dependencias Python y web
 make build-bank   # reconstruye JSON, SQLite e informes desde los PDF
-make dev          # reconstruye el banco y abre el servidor local
+make dev          # abre inmediatamente el servidor local
 make test         # pruebas del pipeline, puntuación y web
 make build        # genera la web estática en dist/
 ```
+
+`make build-bank` solo es necesario cuando se añaden o cambian PDF. El banco generado está incluido en el proyecto, por lo que el arranque diario no repite el OCR.
 
 ## Qué incluye
 
