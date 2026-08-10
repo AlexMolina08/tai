@@ -31,8 +31,21 @@ class BankTest(unittest.TestCase):
 
     def test_complete_extraction_coverage(self):
         coverage = json.loads((ROOT / "reports/coverage-matrix.json").read_text(encoding="utf-8"))
-        self.assertEqual(sum(row["expected"] for row in coverage), 3500)
+        self.assertEqual(sum(row["expected"] for row in coverage), 3520)
         self.assertTrue(all(row["extracted"] == row["expected"] and not row["missing"] for row in coverage))
+
+    def test_supplemental_topic_9_questions_are_merged_once(self):
+        source = json.loads((ROOT / "sources/test_t9_examenes.json").read_text(encoding="utf-8"))
+        by_id = {question["id"]: question for question in self.bank["questions"]}
+        for item in source["questions"]:
+            question_id = item["existingId"] or f"{source['meta']['id']}:first:{item['sourceNumber']}"
+            question = by_id[question_id]
+            self.assertEqual(question["topicId"], "I.9")
+            self.assertEqual(question["prompt"], item["prompt"])
+            self.assertEqual(question["options"], item["options"])
+            self.assertEqual(question["correctAnswer"], item["correctAnswer"])
+            self.assertEqual(question["active"], item["active"])
+        self.assertEqual(source["meta"]["internalDuplicates"], {"33": 8, "34": 10})
 
 
 if __name__ == "__main__":

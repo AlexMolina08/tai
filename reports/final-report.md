@@ -1,25 +1,25 @@
 # Informe final del banco TAI AGE
 
-Construido: 2026-08-02
+Construido: 2026-08-10
 Referencia oficial: `TAILI.pdf`
 
 ## Cobertura
 
-- Exámenes: 24
-- PDF inventariados: 48
-- Preguntas esperadas: 3500
-- Preguntas extraídas: 3500
-- Banco vigente activo: 2107
+- Exámenes: 25
+- PDF inventariados: 49
+- Preguntas esperadas: 3520
+- Preguntas extraídas: 3520
+- Banco vigente activo: 2129
 
 ## Estado de las preguntas
 
 - annulled: 52
-- classification_review: 899
+- classification_review: 895
 - duplicate: 158
 - missing_official_answer: 66
 - ocr_review: 169
-- outdated: 49
-- valid: 2107
+- outdated: 51
+- valid: 2129
 
 ## Cobertura por examen
 
@@ -47,6 +47,7 @@ Referencia oficial: `TAILI.pdf`
 - 2024-promocion-interna: 85/85 preguntas; 85 respuestas enlazadas; faltan 0
 - 2025-libre-ordinario-a: 135/135 preguntas; 135 respuestas enlazadas; faltan 0
 - 2025-libre-extraordinario: 135/135 preguntas; 135 respuestas enlazadas; faltan 0
+- forjatic-tema-9-examenes-reales: 20/20 preguntas; 20 respuestas enlazadas; faltan 0
 
 ## Distribución vigente por tema
 
@@ -55,17 +56,17 @@ Referencia oficial: `TAILI.pdf`
 - I.3: 31
 - I.4: 33
 - I.5: 22
-- I.6: 23
+- I.6: 22
 - I.7: 28
 - I.8: 30
-- I.9: 10
+- I.9: 39
 - II.1: 23
 - II.2: 43
 - II.3: 82
 - II.4: 121
 - II.5: 11
 - III.1: 150
-- III.2: 103
+- III.2: 102
 - III.3: 97
 - III.4: 99
 - III.5: 75
@@ -73,11 +74,11 @@ Referencia oficial: `TAILI.pdf`
 - III.7: 128
 - III.8: 69
 - III.9: 37
-- IV.1: 52
-- IV.2: 80
+- IV.1: 50
+- IV.2: 79
 - IV.3: 57
 - IV.4: 39
-- IV.5: 113
+- IV.5: 111
 - IV.6: 111
 - IV.7: 99
 - IV.8: 106

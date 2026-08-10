@@ -29,10 +29,11 @@ def main() -> None:
         "blankPenalty": 0, "officialMaximum": 100, "partMaximum": 50,
         "officialCutNote": "Cada parte exige 25/50 tras la transformación de la CPS; la puntuación directa mínima se publica por separado.",
     }
-    assert len(bank["documents"]) == 48
+    assert len(bank["documents"]) == 49
     assert all(document["status"] not in {"reviewed_not_imported", "reviewed_ocr_required"} for document in bank["documents"])
     ids = [question["id"] for question in bank["questions"]]
     assert len(ids) == len(set(ids))
+    document_pages = {document["path"]: document["pages"] for document in bank["documents"]}
     source_pages: dict[str, int] = {}
     for question in bank["questions"]:
         assert len(question["options"]) == 4
@@ -42,7 +43,11 @@ def main() -> None:
         assert question["topicId"] in {topic["id"] for block in bank["program"] for topic in block["topics"]}
         source = ROOT / question["source"]["pdf"]
         if str(source) not in source_pages:
-            source_pages[str(source)] = len(PdfReader(str(source)).pages)
+            if source.exists():
+                source_pages[str(source)] = len(PdfReader(str(source)).pages)
+            else:
+                assert question["source"]["pdf"] in document_pages
+                source_pages[str(source)] = document_pages[question["source"]["pdf"]]
         assert 1 <= question["source"]["page"] <= source_pages[str(source)]
         if question["active"]:
             assert question["status"] == "valid"

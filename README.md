@@ -40,11 +40,12 @@ make build        # genera la web estática en dist/
 - Exportación del simulacro PDF, soluciones PDF y ZIP con ambos.
 - Inventario de todos los documentos, cola de revisión y banco SQLite.
 
-## Estado del banco (2 de agosto de 2026)
+## Estado del banco (10 de agosto de 2026)
 
-- 3.500 preguntas localizadas y trazadas: no falta ningún número esperado de los 24 exámenes lógicos.
-- 2.107 preguntas en el banco activo, con respuesta oficial, clasificación suficientemente sólida y extracción sin señales de mezcla.
-- 899 clasificaciones conservadas en revisión y 169 extracciones OCR aisladas para control humano. No entran en tests ni simulacros.
+- 3.520 preguntas localizadas y trazadas: 3.500 proceden de los 24 exámenes lógicos y 20 son preguntas únicas añadidas desde una recopilación temática aportada.
+- 2.129 preguntas en el banco activo, con respuesta enlazada, clasificación suficientemente sólida y extracción sin señales de mezcla.
+- La recopilación del Tema I.9 contiene 35 preguntas: 13 ya estaban en el banco, 20 eran nuevas y 2 repetían literalmente otras preguntas del mismo PDF.
+- 895 clasificaciones conservadas en revisión y 169 extracciones OCR aisladas para control humano. No entran en tests ni simulacros.
 - 66 preguntas del segundo ejercicio de 2017 se conservan sin activar porque la recopilación no incluye su plantilla oficial.
 
 Una pregunta pendiente sigue teniendo un tema candidato y su procedencia, pero la aplicación no lo presenta como validado. La cola completa está en `reports/review-queue.json`.

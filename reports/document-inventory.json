@@ -574,5 +574,17 @@
     "year": null,
     "status": "official_reference",
     "note": "Programa y reglas oficiales usados para todo el banco"
+  },
+  {
+    "id": "79e3fad07bbf",
+    "path": "Fuentes aportadas/test_t9_examenes.pdf",
+    "sha256": "879075400aa0bc8b0e0ec41f5614a0ec6f278b863f52d16f288e3bf2ca9a9b9f",
+    "pages": 9,
+    "bytes": 4878458,
+    "textMode": "transcripcion_visual_verificada",
+    "role": "cuestionario_y_plantilla",
+    "year": 2026,
+    "status": "supplemental_transcribed",
+    "note": "Fuente aportada: 35 preguntas, 33 únicas y 20 nuevas; el PDF original no se publica"
   }
 ]

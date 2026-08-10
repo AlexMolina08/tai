@@ -36,3 +36,16 @@ Una pregunta solo puede entrar en el banco si conserva:
 ## Escaneos
 
 Ejecuta primero `.venv/bin/python scripts/ocr_sources.py`. El OCR se guarda en `tmp/ocr/`; los PDF originales siguen intactos. Una pregunta con ruido, opciones incompletas o recuento sin cerrar no puede entrar en el banco vigente.
+
+## Recopilaciones temáticas aportadas
+
+Cuando una fuente de terceros no deba publicarse, conserva en `sources/` únicamente la transcripción necesaria, la huella SHA-256, el número de página y la plantilla de respuestas. El importador debe:
+
+- reutilizar las preguntas ya presentes en exámenes oficiales;
+- registrar y omitir los duplicados internos;
+- añadir solo las preguntas realmente ausentes;
+- contrastar la vigencia con fuentes oficiales;
+- mantener fuera del banco activo cualquier enunciado temporal u obsoleto;
+- inventariar la fuente sin incluir el PDF original en el repositorio público.
+
+La incorporación de `sources/test_t9_examenes.json` aplica este flujo al Tema I.9.

@@ -23,6 +23,7 @@ from ocr_sources import needs_ocr
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "TAI AGE"
 OFFICIAL_CALL = ROOT / "TAILI.pdf"
+SUPPLEMENTAL_SOURCE = ROOT / "sources" / "test_t9_examenes.json"
 DATA = ROOT / "src" / "data"
 REPORTS = ROOT / "reports"
 MIN_CLASSIFICATION_CONFIDENCE = 0.68
@@ -429,6 +430,79 @@ def build_inventory(imported_paths: set[Path]) -> list[dict]:
     return documents
 
 
+def merge_supplemental_questions(questions: list[dict], coverage: list[dict], exam_summaries: list[dict]) -> dict:
+    """Incorpora una transcripción aportada sin publicar su PDF de terceros.
+
+    Las preguntas ya presentes corrigen su texto y clasificación conservando la
+    procedencia oficial original. Las ausentes se añaden con la página y huella
+    de la recopilación aportada.
+    """
+    source = json.loads(SUPPLEMENTAL_SOURCE.read_text(encoding="utf-8"))
+    meta = source["meta"]
+    existing_by_id = {question["id"]: question for question in questions}
+    added = 0
+
+    for item in source["questions"]:
+        existing_id = item.get("existingId")
+        if existing_id:
+            question = existing_by_id.get(existing_id)
+            if question is None:
+                raise ValueError(f"No existe la pregunta curada {existing_id}")
+            if question["correctAnswer"] not in {None, item["correctAnswer"]}:
+                raise ValueError(f"La plantilla aportada contradice la respuesta oficial de {existing_id}")
+            question.update({
+                "prompt": item["prompt"], "options": item["options"], "correctAnswer": item["correctAnswer"],
+                "blockId": "I", "topicId": meta["topicId"], "classificationConfidence": 1.0,
+                "classificationMethod": "curacion_fuente_tematica_aportada", "status": item["status"],
+                "statusReason": item["statusReason"], "active": item["active"],
+            })
+            continue
+
+        question_id = f"{meta['id']}:first:{item['sourceNumber']}"
+        question = {
+            "id": question_id, "examId": meta["id"], "year": 2026, "access": "libre",
+            "sitting": "recopilacion", "exercise": "primera_parte", "section": "first",
+            "isReserve": False, "originalNumber": item["sourceNumber"], "prompt": item["prompt"],
+            "options": item["options"], "correctAnswer": item["correctAnswer"],
+            "answerStatus": "plantilla_fuente_aportada", "blockId": "I", "topicId": meta["topicId"],
+            "classificationConfidence": 1.0, "classificationMethod": "curacion_fuente_tematica_aportada",
+            "status": item["status"], "statusReason": item["statusReason"], "active": item["active"],
+            "duplicateOf": None,
+            "source": {
+                "pdf": f"Fuentes aportadas/{meta['sourceFile']}", "page": item["sourcePage"],
+                "answerPdf": f"Fuentes aportadas/{meta['sourceFile']}",
+                "extraction": "transcripcion_visual_verificada",
+            },
+        }
+        questions.append(question)
+        existing_by_id[question_id] = question
+        added += 1
+
+    expected_added = len([item for item in source["questions"] if not item.get("existingId")])
+    if added != expected_added:
+        raise ValueError(f"Se esperaban {expected_added} preguntas nuevas y se añadieron {added}")
+    coverage.append({
+        "examId": meta["id"], "expected": added, "extracted": added, "answers": added, "missing": [],
+        "sourceQuestions": meta["sourceQuestionCount"],
+        "alreadyPresent": len(source["questions"]) - added,
+        "internalDuplicates": meta["internalDuplicates"],
+    })
+    exam_summaries.append({
+        "id": meta["id"], "name": "Recopilación temática aportada · Tema I.9", "year": 2026,
+        "access": "libre", "sitting": "recopilacion",
+    })
+    return {
+        "id": hashlib.sha1(meta["sourceFile"].encode()).hexdigest()[:12],
+        "path": f"Fuentes aportadas/{meta['sourceFile']}", "sha256": meta["sourceSha256"],
+        "pages": meta["sourcePages"], "bytes": 4878458, "textMode": "transcripcion_visual_verificada",
+        "role": "cuestionario_y_plantilla", "year": 2026, "status": "supplemental_transcribed",
+        "note": (
+            f"Fuente aportada: {meta['sourceQuestionCount']} preguntas, "
+            f"{len(source['questions'])} únicas y {added} nuevas; el PDF original no se publica"
+        ),
+    }
+
+
 def write_sqlite(bank: dict) -> None:
     path = DATA / "bank.sqlite"
     path.unlink(missing_ok=True)
@@ -542,6 +616,8 @@ def main() -> None:
         coverage.append({"examId": exam["id"], "expected": expected, "extracted": extracted_count, "answers": sum(1 for q in questions if q["examId"] == exam["id"] and q["correctAnswer"]), "missing": exam_missing})
         exam_summaries.append({key: exam[key] for key in ("id", "name", "year", "access", "sitting")})
 
+    supplemental_document = merge_supplemental_questions(questions, coverage, exam_summaries)
+
     seen: dict[str, str] = {}
     for question in questions:
         normalized = re.sub(r"\W+", "", folded(question["prompt"]))
@@ -555,7 +631,7 @@ def main() -> None:
     bank = {
         "meta": {"schemaVersion": 2, "builtAt": date.today().isoformat(), "officialCall": "TAILI.pdf", "officialCallSha256": sha256(OFFICIAL_CALL), "sourceFolder": "TAI AGE/ (solo lectura)", "scoringNote": "Directa = aciertos - errores/3. La nota oficial requiere la transformación de la CPS."},
         "examConfig": {"durationMinutes": 120, "firstPartQuestions": 80, "firstPartReserve": 5, "practicalQuestions": 20, "practicalReserve": 5, "wrongPenalty": 1 / 3, "blankPenalty": 0, "officialMaximum": 100, "partMaximum": 50, "officialCutNote": "Cada parte exige 25/50 tras la transformación de la CPS; la puntuación directa mínima se publica por separado."},
-        "program": PROGRAM, "documents": build_inventory(imported_paths), "exams": exam_summaries, "questions": questions,
+        "program": PROGRAM, "documents": build_inventory(imported_paths) + [supplemental_document], "exams": exam_summaries, "questions": questions,
     }
     (DATA / "bank.json").write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
     (DATA / "program.json").write_text(json.dumps(PROGRAM, ensure_ascii=False, indent=2), encoding="utf-8")
