@@ -151,7 +151,7 @@ PATTERNS: dict[str, list[str]] = {
     "I.5": ["igualdad", "violencia de genero", "lgtbi", "persona trans", "discriminacion", "discapacidad", "dependencia", "accesibilidad universal", "ley organica 1/2004", "ley organica 3/2007", "ley 4/2023", "ley 15/2022"],
     "I.6": ["firma electronica", "certificado electronico", "certificado reconocido", "prestador de servicios", "dni electronico", "dnie", "eidas", "sociedad de la informacion", "agenda digital", "reglamento 910/2014", "ley 6/2020"],
     "I.7": ["proteccion de datos", "datos personales", "responsable del fichero", "encargado del tratamiento", "agencia espanola de proteccion", "lopd", "rgpd", "derechos digitales", "consentimiento del interesado", "ley organica 3/2018", "reglamento 2016/679", "delegado de proteccion"],
-    "I.8": ["procedimiento administrativo", "registro electronico", "notificacion electronica", "expediente electronico", "esquema nacional de seguridad", "esquema nacional de interoperabilidad", "norma tecnica de interoperabilidad", "documento electronico", "ley 39/2015", "ley 40/2015", "real decreto 311/2022", "ens ", "eni "],
+    "I.8": ["procedimiento administrativo", "registro electronico", "notificacion electronica", "expediente electronico", "esquema nacional de seguridad", "esquema nacional de interoperabilidad", "norma tecnica de interoperabilidad", "documento electronico", "ley 39/2015", "ley 40/2015", "real decreto 311/2022", "ens ", "eni ", "ccn-cert", "ccn", "centro criptologico nacional", "guia ccn-stic", "ccn-stic", "pilar", "clara", "codigo danino", "codigo malicioso"],
     "I.9": ["sede electronica", "punto de acceso", "carpeta ciudadana", "clave ", "cl@ve", "plataforma de intermediacion", "identificacion", "autenticacion", "red sara", "inside", "apodera", "notific", "direccion electronica habilitada"],
     "II.1": ["arquitectura de ordenador", "procesador", "cpu", "unidad aritmetica", "memoria ram", "memoria cache", "bus ", "placa base", "codigo binario", "representacion de la informacion", "bit ", "byte", "von neumann"],
     "II.2": ["periferico", "impresora", "scanner", "digitalizacion", "pantalla", "monitor", "almacenamiento", "disco ssd", "usb", "hdmi", "thunderbolt", "blu-ray"],
@@ -190,6 +190,12 @@ OUTDATED = {
 }
 
 MIN_CONFIDENCE = 0.68
+
+# Curaciones manuales de tema para casos inequívocos
+TOPIC_OVERRIDES: dict[str, tuple[str, float, str]] = {
+    # Herramienta del CCN-CERT (análisis estático de código dañino: MARIA, PILAR, CLARA, REYES) -> ENS (Tema I.8)
+    "2019-libre-ordinario:first:77": ("I.8", 1.0, "curacion_manual_verificada"),
+}
 
 
 def folded(value: str) -> str:
@@ -428,10 +434,15 @@ def build_bank() -> tuple[dict, list[dict], list[dict]]:
                 })
                 continue
 
+            qid = f"{exam['id']}:{spec['key']}:{rq['number']}"
+
             # Classification
-            topic, confidence, method = classify(
-                rq["prompt"], rq["options"], spec["blocks"]
-            )
+            if qid in TOPIC_OVERRIDES:
+                topic, confidence, method = TOPIC_OVERRIDES[qid]
+            else:
+                topic, confidence, method = classify(
+                    rq["prompt"], rq["options"], spec["blocks"]
+                )
             block = topic.split(".")[0]
 
             # Status determination
@@ -452,8 +463,6 @@ def build_bank() -> tuple[dict, list[dict], list[dict]]:
                 status = "valid"
                 reason = "Respuesta oficial enlazada y clasificación compatible con el programa vigente"
                 active = True
-
-            qid = f"{exam['id']}:{spec['key']}:{rq['number']}"
 
             question = {
                 "id": qid,
