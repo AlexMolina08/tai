@@ -5,12 +5,14 @@ import {
   Download, FileArchive, FileDown, Flag, Heart, History, Home, ListFilter,
   Menu, Play, RotateCcw, Search, Settings2, ShieldCheck, Upload, X,
 } from 'lucide-react'
-import type { Answer, AttemptRecord, Bank, Question, QuestionProgress, TestSpec } from './types'
+import type { Answer, AttemptRecord, Bank, Question, QuestionProgress, SavedSource, TestSpec, UploadedSource } from './types'
 import { formatScore, scoreTest } from './lib/scoring'
-import { configured, exportProgress, importProgress, loadBank, loadProgress, recordAttempt, supabase, toggleFavorite } from './lib/storage'
+import { configured, exportProgress, importProgress, loadBank, loadProgress, loadUserSources, recordAttempt, saveUserSource, supabase, toggleFavorite } from './lib/storage'
 import { readLegacyProgress } from './lib/legacyProgress'
+import { parseUploadedSource, sourceQuestions } from './lib/uploadedSources'
 
 let bank: Bank
+let officialBank: Bank
 type View = 'home' | 'questions' | 'create' | 'history' | 'progress' | 'sources'
 
 const navItems: { id: View; label: string; icon: typeof Home }[] = [
@@ -50,12 +52,14 @@ function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(false)
   const [catalogReady, setCatalogReady] = useState(false)
+  const [catalogVersion, setCatalogVersion] = useState(0)
+  const [savedSources, setSavedSources] = useState<SavedSource[]>([])
   const [catalogError, setCatalogError] = useState('')
   const [progressReady, setProgressReady] = useState(false)
   const [progressError, setProgressError] = useState('')
   const legacyChecked = useRef(false)
 
-  const activeQuestions = useMemo(() => catalogReady ? bank.questions.filter(question => question.active) : [], [catalogReady])
+  const activeQuestions = useMemo(() => catalogReady ? bank.questions.filter(question => question.active) : [], [catalogReady, catalogVersion])
   const progressMap = useMemo(() => new Map(progress.map(item => [item.questionId, item])), [progress])
 
   const refreshRemote = async () => {
@@ -82,6 +86,13 @@ function App() {
     }
   }
 
+  const refreshSources = async () => {
+    const saved = await loadUserSources(officialBank.program)
+    bank = { ...officialBank, questions: [...officialBank.questions, ...saved.flatMap(item => sourceQuestions(item, officialBank.program))] }
+    setSavedSources(saved)
+    setCatalogVersion(version => version + 1)
+  }
+
   useEffect(() => {
     if (!supabase) { setAuthReady(true); return }
     void supabase.auth.getSession().then(({ data }) => {
@@ -90,7 +101,7 @@ function App() {
     })
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
       setSession(next)
-      if (!next) { setProgress([]); setAttempts([]); setProgressReady(false); setCatalogReady(false) }
+      if (!next) { setProgress([]); setAttempts([]); setSavedSources([]); setProgressReady(false); setCatalogReady(false) }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -98,14 +109,16 @@ function App() {
   useEffect(() => {
     if (!session) return
     setCatalogReady(false)
-    void loadBank().then(remoteBank => {
-      bank = remoteBank
+    void loadBank().then(async remoteBank => {
+      officialBank = remoteBank
+      await refreshSources()
       setCatalogError('')
       setCatalogReady(true)
     }).catch(error => setCatalogError(error instanceof Error ? error.message : 'No se pudo leer el banco de Supabase.'))
     void refreshRemote()
-    const onFocus = () => void refreshRemote()
-    const onVisible = () => { if (document.visibilityState === 'visible') void refreshRemote() }
+    const refreshVisible = () => { void refreshRemote(); if (officialBank) void refreshSources().catch(error => setNotice(error instanceof Error ? error.message : 'No se pudieron actualizar las fuentes.')) }
+    const onFocus = () => refreshVisible()
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshVisible() }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onVisible)
     return () => {
@@ -170,7 +183,7 @@ function App() {
           {view === 'create' && <TestBuilder questions={activeQuestions} progressMap={progressMap} onStart={startTest} />}
           {view === 'history' && <HistoricalExams onStart={startTest} />}
           {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} onRefresh={refreshRemote} setNotice={setNotice} />}
-          {view === 'sources' && <SourcesPage />}
+          {view === 'sources' && <SourcesPage savedSources={savedSources} onSaved={refreshSources} setNotice={setNotice} />}
         </div>
       </main>
     </div>
@@ -201,12 +214,14 @@ function AuthScreen() {
 function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes }: {
   questions: Question[]; attempts: AttemptRecord[]; progress: QuestionProgress[]; onView: (view: View) => void; onStart: (spec: TestSpec) => void; onMistakes: () => void
 }) {
-  const seen = progress.filter(item => item.seen > 0).length
-  const accuracy = progress.reduce((sum, item) => sum + item.correct, 0) / Math.max(1, progress.reduce((sum, item) => sum + item.correct + item.wrong, 0)) * 100
+  const currentIds = new Set(questions.map(question => question.id))
+  const currentProgress = progress.filter(item => currentIds.has(item.questionId))
+  const seen = currentProgress.filter(item => item.seen > 0).length
+  const accuracy = currentProgress.reduce((sum, item) => sum + item.correct, 0) / Math.max(1, currentProgress.reduce((sum, item) => sum + item.correct + item.wrong, 0)) * 100
   const quick = () => onStart({ id: crypto.randomUUID(), title: 'Test rápido · 20 preguntas', mode: 'custom', questionIds: shuffle(questions).slice(0, 20).map(q => q.id), createdAt: new Date().toISOString() })
   return <>
     <section className="hero-panel">
-      <div className="hero-copy"><span className="eyebrow light">Sesión de estudio</span><h2>Una pregunta.<br/><em>Una decisión.</em></h2><p>{questions.length ? 'Practica con preguntas de exámenes reales. Tu progreso se guarda en Supabase y aparece en tus dispositivos al acceder con el mismo correo.' : 'El preparador está listo para recibir nuevas preguntas.'}</p>
+      <div className="hero-copy"><span className="eyebrow light">Sesión de estudio</span><h2>Una pregunta.<br/><em>Una decisión.</em></h2><p>{questions.length ? 'Practica con exámenes oficiales y con las fuentes que añadas. Tu progreso se guarda en Supabase y aparece en tus dispositivos al acceder con el mismo correo.' : 'El preparador está listo para recibir nuevas preguntas.'}</p>
         <div className="hero-actions">{questions.length ? <><button className="primary-button" onClick={quick}><Play size={17}/> Test rápido</button><button className="ghost-button" onClick={() => onView('create')}><Settings2 size={17}/> Configurar</button></> : <span>Banco vacío · las preguntas se añadirán próximamente.</span>}</div>
       </div>
       <div className="answer-sheet" aria-label="Resumen de progreso">
@@ -216,7 +231,7 @@ function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes 
       </div>
     </section>
     <section className="stat-strip">
-      <div><span>Banco activo</span><strong>{questions.length}</strong><small>preguntas verificadas</small></div>
+      <div><span>Banco activo</span><strong>{questions.length}</strong><small>exámenes y fuentes añadidas</small></div>
       <div><span>Programa vigente</span><strong>33</strong><small>temas · 4 bloques</small></div>
       <div><span>Exámenes</span><strong>{bank.exams.length}</strong><small>convocatorias reales</small></div>
       <div><span>Último resultado</span><strong>{attempts[0] ? `${formatScore(attempts[0].result.percentage)}%` : '—'}</strong><small>puntuación directa</small></div>
@@ -243,11 +258,12 @@ function QuestionExplorer({ questions, program, progressMap, onFavorite }: {
   const [topic, setTopic] = useState('')
   const [year, setYear] = useState('')
   const [access, setAccess] = useState('')
+  const [origin, setOrigin] = useState('')
   const [status, setStatus] = useState('active')
   const [expanded, setExpanded] = useState<string | null>(null)
   const filtered = questions.filter(q => {
     const statusMatch = status === 'all' || (status === 'active' ? q.active : status === 'historical' ? Boolean(q.correctAnswer && q.correctAnswer !== 'anulada') : ['missing_official_answer', 'classification_review', 'ocr_review'].includes(q.status))
-    return (!text || foldedSearch(q.prompt + q.options.join(' ')).includes(foldedSearch(text))) && (!block || q.blockId === block) && (!topic || q.topicId === topic) && (!year || String(q.year) === year) && (!access || q.access === access) && statusMatch
+    return (!text || foldedSearch(q.prompt + q.options.join(' ')).includes(foldedSearch(text))) && (!block || q.blockId === block) && (!topic || q.topicId === topic) && (!year || String(q.year) === year) && (!access || q.access === access) && (!origin || (origin === 'uploaded' ? q.origin === 'uploaded' : q.origin !== 'uploaded')) && statusMatch
   })
   return <>
     <section className="section-heading"><div><span className="eyebrow">Banco trazable</span><h2>Explorador de preguntas</h2><p>{filtered.length} resultados. Las respuestas solo se muestran al abrir una pregunta.</p></div></section>
@@ -257,6 +273,7 @@ function QuestionExplorer({ questions, program, progressMap, onFavorite }: {
       <select value={topic} onChange={e => setTopic(e.target.value)} aria-label="Tema"><option value="">Todos los temas</option>{program.filter(b => !block || b.id === block).flatMap(b => b.topics).map(t => <option key={t.id} value={t.id}>{t.id} · {t.name}</option>)}</select>
       <select value={year} onChange={e => setYear(e.target.value)} aria-label="Año"><option value="">Todos los años</option>{[...new Set(questions.map(q => q.year))].sort().map(y => <option key={y}>{y}</option>)}</select>
       <select value={access} onChange={e => setAccess(e.target.value)} aria-label="Acceso"><option value="">Todas las vías</option><option value="libre">Ingreso libre</option><option value="promocion_interna">Promoción interna</option></select>
+      <select value={origin} onChange={e => setOrigin(e.target.value)} aria-label="Origen"><option value="">Todos los orígenes</option><option value="official">Exámenes oficiales</option><option value="uploaded">Fuentes añadidas</option></select>
       <select value={status} onChange={e => setStatus(e.target.value)} aria-label="Estado"><option value="active">Banco vigente</option><option value="historical">Con respuesta oficial</option><option value="pending">Pendientes de revisión</option><option value="all">Todas</option></select>
     </div>
     {!questions.length && <div className="empty-state"><Search/><h3>El banco está vacío</h3><p>Aún no hay preguntas cargadas.</p></div>}
@@ -264,12 +281,14 @@ function QuestionExplorer({ questions, program, progressMap, onFavorite }: {
       const open = expanded === question.id
       return <article key={question.id} className={`question-row ${question.active ? '' : 'excluded'}`}>
         <button className="question-main" onClick={() => setExpanded(open ? null : question.id)} aria-expanded={open}>
-          <span className="question-number">{question.originalNumber}</span><span><small>{question.topicId} · {topicName(question.topicId)} · {question.year} · {question.sitting}{question.isReserve ? ' · reserva' : ''}</small><strong>{question.prompt}</strong></span><ChevronRight className={open ? 'rotated' : ''}/>
+          <span className="question-number">{question.originalNumber}</span><span><small>{question.topicId} · {topicName(question.topicId)} · {question.origin === 'uploaded' ? question.source.pdf : `${question.year} · ${question.sitting}`}{question.isReserve ? ' · reserva' : ''}</small><strong>{question.prompt}</strong></span><ChevronRight className={open ? 'rotated' : ''}/>
         </button>
         <button className={`favorite-button ${progressMap.get(question.id)?.favorite ? 'selected' : ''}`} onClick={() => onFavorite(question.id)} aria-label="Favorita"><Heart size={18}/></button>
         {open && <div className="question-detail">
           <ol type="a">{question.options.map((option, index) => <li key={option} className={String.fromCharCode(97 + index) === question.correctAnswer ? 'correct-option' : ''}>{option}</li>)}</ol>
-          <div className="provenance"><Check size={15}/><span>{question.correctAnswer ? <>Respuesta oficial: <b>{question.correctAnswer.toUpperCase()}</b></> : 'Sin plantilla oficial disponible'}</span><span>{question.source.pdf} · página {question.source.page}</span></div>
+          <div className="provenance"><Check size={15}/><span>{question.correctAnswer ? <>{question.origin === 'uploaded' ? 'Respuesta indicada' : 'Respuesta oficial'}: <b>{question.correctAnswer.toUpperCase()}</b></> : 'Sin plantilla oficial disponible'}</span><span>{question.origin === 'uploaded' ? `Fuente añadida: ${question.source.pdf}` : `${question.source.pdf} · página ${question.source.page}`}</span></div>
+          {question.explanation && <p className="source-explanation">{question.explanation}</p>}
+          {question.sourceNote && <p className="source-note">Referencia: {question.sourceNote}</p>}
           {!question.active && <div className="exclusion-reason">Fuera del banco activo: {question.statusReason}</div>}
         </div>}
       </article>})}</div>
@@ -285,8 +304,9 @@ function TestBuilder({ questions, progressMap, onStart }: { questions: Question[
   const [topics, setTopics] = useState<string[]>(allTopicIds)
   const [count, setCount] = useState(20)
   const [pool, setPool] = useState<'all' | 'unseen' | 'failed' | 'favorite'>('all')
+  const [origin, setOrigin] = useState<'all' | 'official' | 'uploaded'>('all')
   const [practical, setPractical] = useState<'III' | 'IV'>('III')
-  const eligible = questions.filter(q => blocks.includes(q.blockId) && topics.includes(q.topicId) && !q.isReserve && (pool === 'all' || (pool === 'unseen' && !progressMap.get(q.id)?.seen) || (pool === 'failed' && (progressMap.get(q.id)?.wrong ?? 0) > 0) || (pool === 'favorite' && progressMap.get(q.id)?.favorite)))
+  const eligible = questions.filter(q => blocks.includes(q.blockId) && topics.includes(q.topicId) && !q.isReserve && (origin === 'all' || (origin === 'uploaded' ? q.origin === 'uploaded' : q.origin !== 'uploaded')) && (pool === 'all' || (pool === 'unseen' && !progressMap.get(q.id)?.seen) || (pool === 'failed' && (progressMap.get(q.id)?.wrong ?? 0) > 0) || (pool === 'favorite' && progressMap.get(q.id)?.favorite)))
 
   const toggleBlock = (blockId: string) => {
     const topicIds = bank.program.find(block => block.id === blockId)?.topics.map(topic => topic.id) ?? []
@@ -303,7 +323,7 @@ function TestBuilder({ questions, progressMap, onStart }: { questions: Question[
     let selected: Question[]
     let title: string
     if (mode === 'simulation') {
-      const first = shuffle(questions.filter(q => q.section === 'first')).slice(0, 80)
+      const first = shuffle(questions.filter(q => q.origin !== 'uploaded' && q.section === 'first')).slice(0, 80)
       const used = new Set(first.map(q => q.id))
       const firstReservePool = shuffle(questions.filter(q => q.section === 'first_reserve' && !used.has(q.id)))
       const firstReserve = firstReservePool.slice(0, 5)
@@ -330,7 +350,7 @@ function TestBuilder({ questions, progressMap, onStart }: { questions: Question[
         {mode === 'custom' ? <>
           <fieldset><legend>Bloques</legend><div className="choice-grid">{bank.program.map(b => <label key={b.id} className={blocks.includes(b.id) ? 'checked' : ''}><input type="checkbox" checked={blocks.includes(b.id)} onChange={() => toggleBlock(b.id)}/><b>{b.id}</b><span>{b.name}</span></label>)}</div></fieldset>
           <fieldset><div className="legend-row"><legend>Temas</legend><span><button type="button" onClick={() => { setBlocks(['I', 'II', 'III', 'IV']); setTopics(allTopicIds) }}>Seleccionar todos</button><button type="button" onClick={() => { setBlocks([]); setTopics([]) }}>Quitar todos</button></span></div><div className="topic-choice-list">{bank.program.filter(block => blocks.includes(block.id)).map(block => <section key={block.id}><h4><b>{block.id}</b><span>{block.name}</span><i>{block.topics.filter(topic => topics.includes(topic.id)).length}/{block.topics.length}</i></h4>{block.topics.map(topic => { const count = questions.filter(q => q.topicId === topic.id && !q.isReserve).length; return <label key={topic.id} className={topics.includes(topic.id) ? 'checked' : ''}><input type="checkbox" checked={topics.includes(topic.id)} onChange={() => setTopics(topics.includes(topic.id) ? topics.filter(id => id !== topic.id) : [...topics, topic.id])}/><b>{topic.id}</b><span>{topic.name}</span><i title={`${count} preguntas disponibles`}><strong>{count}</strong><small>preg.</small></i></label> })}</section>)}</div></fieldset>
-          <div className="form-row"><label>Número de preguntas<input type="number" min="5" max="100" value={count} onChange={e => setCount(Number(e.target.value))}/></label><label>Selección<select value={pool} onChange={e => setPool(e.target.value as typeof pool)}><option value="all">Cualquiera</option><option value="unseen">Nunca vistas</option><option value="failed">Falladas</option><option value="favorite">Favoritas</option></select></label></div>
+          <div className="form-row"><label>Número de preguntas<input type="number" min="1" max="100" value={count} onChange={e => setCount(Number(e.target.value))}/></label><label>Selección<select value={pool} onChange={e => setPool(e.target.value as typeof pool)}><option value="all">Cualquiera</option><option value="unseen">Nunca vistas</option><option value="failed">Falladas</option><option value="favorite">Favoritas</option></select></label><label>Origen<select value={origin} onChange={e => setOrigin(e.target.value as typeof origin)}><option value="all">Todas las preguntas</option><option value="official">Solo exámenes</option><option value="uploaded">Solo mis fuentes</option></select></label></div>
           <p className="availability">{eligible.length} preguntas disponibles con estos criterios.</p>
         </> : <>
           <div className="official-format"><div><strong>80 + 5</strong><span>Primera parte</span></div><i>+</i><div><strong>20 + 5</strong><span>Supuesto práctico</span></div><i>=</i><div><strong>120'</strong><span>Tiempo total</span></div></div>
@@ -376,9 +396,11 @@ function HistoricalExams({ onStart }: { onStart: (spec: TestSpec) => void }) {
 
 function ProgressPage({ attempts, progress, questions, onMistakes, onRefresh, setNotice }: { attempts: AttemptRecord[]; progress: QuestionProgress[]; questions: Question[]; onMistakes: () => void; onRefresh: () => Promise<void>; setNotice: (text: string) => void }) {
   const input = useRef<HTMLInputElement>(null)
-  const wrong = progress.filter(item => item.wrong > 0).length
-  const favorites = progress.filter(item => item.favorite).length
-  const unseen = questions.length - progress.filter(item => item.seen).length
+  const currentIds = new Set(questions.map(question => question.id))
+  const currentProgress = progress.filter(item => currentIds.has(item.questionId))
+  const wrong = currentProgress.filter(item => item.wrong > 0).length
+  const favorites = currentProgress.filter(item => item.favorite).length
+  const unseen = questions.length - currentProgress.filter(item => item.seen).length
   const doExport = async () => downloadText(await exportProgress(), `progreso-tai-${new Date().toISOString().slice(0, 10)}.json`)
   const doImport = async (file?: File) => {
     if (!file || !questions.length) return
@@ -393,11 +415,58 @@ function ProgressPage({ attempts, progress, questions, onMistakes, onRefresh, se
   </>
 }
 
-function SourcesPage() {
+const exampleSource: UploadedSource = {
+  schemaVersion: 1,
+  sourceId: 'tecnologia-basica-01',
+  title: 'Tecnología básica · lote 1',
+  questions: [{
+    id: 'bits-byte', topicId: 'II.1', prompt: '¿Cuántos bits tiene un byte?',
+    options: ['4 bits', '8 bits', '16 bits', '32 bits'], correctAnswer: 'b',
+    explanation: 'Un byte agrupa ocho bits.', sourceNote: 'Apuntes de tecnología básica',
+  }],
+}
+
+function SourcesPage({ savedSources, onSaved, setNotice }: { savedSources: SavedSource[]; onSaved: () => Promise<void>; setNotice: (text: string) => void }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState<{ source: UploadedSource; fileName: string } | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const statuses = Object.entries(bank.documents.reduce<Record<string, number>>((acc, doc) => ({ ...acc, [doc.status]: (acc[doc.status] ?? 0) + 1 }), {}))
+  const chooseFile = async (file?: File) => {
+    setPreview(null)
+    setError('')
+    if (!file) return
+    if (!file.name.toLowerCase().endsWith('.json') || file.size > 1024 * 1024) {
+      setError('Elige un archivo .json de 1 MB como máximo.')
+      return
+    }
+    try { setPreview({ source: parseUploadedSource(await file.text(), bank.program), fileName: file.name }) }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo leer el archivo.') }
+  }
+  const save = async () => {
+    if (!preview) return
+    setBusy(true)
+    setError('')
+    try {
+      await saveUserSource(preview.source)
+      await onSaved()
+      setNotice(`${preview.source.questions.length} preguntas de «${preview.source.title}» guardadas en Supabase.`)
+      setPreview(null)
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo guardar la fuente.') }
+    finally { setBusy(false) }
+  }
+  const replaces = preview && savedSources.some(item => item.source.sourceId === preview.source.sourceId)
   return <>
-    <section className="section-heading"><div><span className="eyebrow">Auditoría documental</span><h2>Fuentes y estado</h2><p>No hay fuentes cargadas en el preparador.</p></div></section>
-    {!bank.documents.length && <div className="empty-state"><Archive/><h3>Sin documentos cargados</h3><p>Esta sección estará disponible cuando se añadan fuentes.</p></div>}
+    <section className="section-heading"><div><span className="eyebrow">Material de estudio</span><h2>Fuentes</h2><p>Añade preguntas que no proceden de exámenes. El archivo se guarda en tu cuenta de Supabase y aparece en tus dispositivos.</p></div></section>
+    <section className="source-upload-card">
+      <div><span className="eyebrow">Preguntas nuevas</span><h3>Subir archivo de preguntas</h3><p>Formato JSON con identificador, título y preguntas. Cada pregunta incluye tema, enunciado, cuatro opciones y respuesta correcta. El archivo se comprueba antes de guardarse.</p></div>
+      <div className="source-upload-actions"><button className="primary-button" onClick={() => input.current?.click()} disabled={busy}><Upload size={16}/> Elegir archivo JSON</button><button className="outline-button" onClick={() => downloadText(JSON.stringify(exampleSource, null, 2), 'ejemplo-fuente-tai.json')}><Download size={16}/> Descargar ejemplo</button><input ref={input} hidden type="file" accept=".json,application/json" onChange={event => { void chooseFile(event.target.files?.[0]); event.target.value = '' }}/></div>
+      {error && <p className="source-upload-error" role="alert">{error}</p>}
+      {preview && <div className="source-preview"><div><b>{preview.source.title}</b><small>{preview.fileName} · {preview.source.questions.length} preguntas · ID: {preview.source.sourceId}</small></div><ul>{preview.source.questions.slice(0, 3).map(question => <li key={question.id}>{question.topicId} · {question.prompt} <span>Correcta: {question.correctAnswer.toUpperCase()}</span></li>)}</ul>{preview.source.questions.length > 3 && <small>Y {preview.source.questions.length - 3} más.</small>}{replaces && <p>Ya existe una fuente con este ID. Se reemplazarán sus preguntas; el progreso de los ID que se conserven seguirá asociado a ellas.</p>}<button className="primary-button" onClick={() => void save()} disabled={busy}>{busy ? 'Guardando…' : replaces ? 'Reemplazar fuente en Supabase' : 'Guardar fuente en Supabase'}</button></div>}
+    </section>
+    <section className="section-heading compact"><div><span className="eyebrow">Tus fuentes</span><h2>Preguntas añadidas</h2><p>{savedSources.length} fuentes · {savedSources.reduce((total, item) => total + item.source.questions.length, 0)} preguntas. Se pueden practicar en los tests personalizados; no se incluyen en los simulacros oficiales.</p></div></section>
+    {savedSources.length ? <div className="uploaded-source-list">{savedSources.map(item => <article key={item.source.sourceId}><div><h3>{item.source.title}</h3><small>ID: {item.source.sourceId} · {new Date(item.uploadedAt).toLocaleDateString('es-ES')}</small></div><div className="uploaded-source-actions"><strong>{item.source.questions.length} preguntas</strong><button className="outline-button" onClick={() => downloadText(JSON.stringify(item.source, null, 2), `${item.source.sourceId}.json`)}><Download size={14}/> Descargar</button></div></article>)}</div> : <div className="source-empty">Todavía no has añadido preguntas desde un archivo.</div>}
+    <section className="section-heading compact"><div><span className="eyebrow">Auditoría documental</span><h2>Exámenes y documentos oficiales</h2></div></section>
     <div className="source-summary">{statuses.map(([status, count]) => <div key={status}><strong>{count}</strong><span>{status.replaceAll('_', ' ')}</span></div>)}</div>
     <div className="source-table"><div className="source-head"><span>Documento</span><span>Tipo</span><span>Páginas</span><span>Estado</span></div>{bank.documents.map(doc => <div key={doc.id}><span><b>{doc.path.split('/').pop()}</b><small>{doc.path}</small></span><span>{doc.role}</span><span>{doc.pages}</span><span><i className={`status-dot ${doc.status}`}/>{doc.status.replaceAll('_', ' ')}<small>{doc.note}</small></span></div>)}</div>
   </>
@@ -440,7 +509,7 @@ function TestRunner({ spec, questions, onClose, progressMap }: { spec: TestSpec;
     <div className="test-layout">
       <main className="test-main"><div className="question-kicker"><span>{question.topicId} · {topicName(question.topicId)}</span><span>{isTestReserve ? 'Reserva · ' : ''}Pregunta {index + 1} de {questions.length}</span></div><h1>{question.prompt}</h1>
         <div className="answer-options">{question.options.map((option, optionIndex) => { const letter = String.fromCharCode(97 + optionIndex) as Answer; return <label key={letter} className={answers[question.id] === letter ? 'selected' : ''}><input type="radio" name={question.id} checked={answers[question.id] === letter} onChange={() => setAnswers({ ...answers, [question.id]: letter })}/><b>{letter.toUpperCase()}</b><span>{option}</span></label>})}</div>
-        <div className="question-actions"><button className={`mark-button ${marked.has(question.id) ? 'marked' : ''}`} onClick={() => { const next = new Set(marked); next.has(question.id) ? next.delete(question.id) : next.add(question.id); setMarked(next) }}><Flag size={17}/>{marked.has(question.id) ? 'Marcada para revisar' : 'Marcar para revisar'}</button><span>{question.year} · {question.sitting} · original {question.originalNumber}</span></div>
+        <div className="question-actions"><button className={`mark-button ${marked.has(question.id) ? 'marked' : ''}`} onClick={() => { const next = new Set(marked); next.has(question.id) ? next.delete(question.id) : next.add(question.id); setMarked(next) }}><Flag size={17}/>{marked.has(question.id) ? 'Marcada para revisar' : 'Marcar para revisar'}</button><span>{question.origin === 'uploaded' ? `Fuente añadida · ${question.source.pdf}` : `${question.year} · ${question.sitting} · original ${question.originalNumber}`}</span></div>
         <div className="test-nav"><button className="outline-button" onClick={() => setIndex(Math.max(0, index - 1))} disabled={index === 0}><ChevronLeft/> Anterior</button>{index === questions.length - 1 ? <button className="primary-button" onClick={() => void finish()}><Check/> Finalizar test</button> : <button className="primary-button" onClick={() => setIndex(index + 1)}>Siguiente <ChevronRight/></button>}</div>
       </main>
       <aside className="answer-map"><div><strong>Hoja de respuestas</strong><small>{Object.keys(answers).length} contestadas · {questions.length - Object.keys(answers).length} en blanco</small></div><div className="answer-grid">{questions.map((q, qIndex) => <button key={q.id} className={`${answers[q.id] ? 'answered' : ''} ${marked.has(q.id) ? 'marked' : ''} ${qIndex === index ? 'current' : ''}`} onClick={() => setIndex(qIndex)}>{qIndex + 1}</button>)}</div><button className="finish-link" onClick={() => void finish()}>Finalizar y corregir</button></aside>
@@ -458,7 +527,7 @@ function ResultScreen({ spec, questions, answers, result, onClose }: { spec: Tes
       <div className="result-stats"><div className="success"><Check/><strong>{result.correct}</strong><span>Aciertos</span></div><div className="danger"><X/><strong>{result.wrong}</strong><span>Errores</span></div><div><span className="blank-icon">—</span><strong>{result.blank}</strong><span>En blanco</span></div><div><BarChart3/><strong>{formatScore(result.percentage)}%</strong><span>Directa</span></div></div>
       <div className="export-bar"><span><FileArchive/> Generar documentos del test</span><button onClick={() => void import('./lib/exportPdf').then(mod => mod.downloadExamPdf(spec, questions))}><FileDown/> Simulacro PDF</button><button onClick={() => void import('./lib/exportPdf').then(mod => mod.downloadSolutionsPdf(spec, questions, answers))}><FileDown/> Soluciones PDF</button><button onClick={() => void import('./lib/exportPdf').then(mod => mod.downloadExamZip(spec, questions, answers))}><Download/> ZIP completo</button></div>
       <section className="section-heading compact"><div><h2>Revisión pregunta a pregunta</h2></div><div className="segmented small"><button className={review === 'wrong' ? 'active' : ''} onClick={() => setReview('wrong')}>Errores</button><button className={review === 'blank' ? 'active' : ''} onClick={() => setReview('blank')}>Blancas</button><button className={review === 'all' ? 'active' : ''} onClick={() => setReview('all')}>Todas</button></div></section>
-      <div className="review-list">{visible.map((q, index) => { const correct = q.correctAnswer as Answer; return <article key={q.id}><div className={`review-status ${answers[q.id] === correct ? 'ok' : answers[q.id] ? 'fail' : 'blank'}`}>{answers[q.id] === correct ? <Check/> : answers[q.id] ? <X/> : '—'}</div><div><small>{q.topicId} · {topicName(q.topicId)} · {q.year} · página {q.source.page}</small><h3>{q.prompt}</h3><p>Correcta: <b>{correct.toUpperCase()}) {q.options[correct.charCodeAt(0) - 97]}</b></p>{answers[q.id] && answers[q.id] !== correct && <p>Tu respuesta: {answers[q.id].toUpperCase()}) {q.options[answers[q.id].charCodeAt(0) - 97]}</p>}</div><span>{index + 1}</span></article> })}</div>
+      <div className="review-list">{visible.map((q, index) => { const correct = q.correctAnswer as Answer; return <article key={q.id}><div className={`review-status ${answers[q.id] === correct ? 'ok' : answers[q.id] ? 'fail' : 'blank'}`}>{answers[q.id] === correct ? <Check/> : answers[q.id] ? <X/> : '—'}</div><div><small>{q.topicId} · {topicName(q.topicId)} · {q.origin === 'uploaded' ? `Fuente añadida: ${q.source.pdf}` : `${q.year} · página ${q.source.page}`}</small><h3>{q.prompt}</h3><p>Correcta: <b>{correct.toUpperCase()}) {q.options[correct.charCodeAt(0) - 97]}</b></p>{answers[q.id] && answers[q.id] !== correct && <p>Tu respuesta: {answers[q.id].toUpperCase()}) {q.options[answers[q.id].charCodeAt(0) - 97]}</p>}{q.explanation && <p>Explicación: {q.explanation}</p>}{q.sourceNote && <p>Referencia: {q.sourceNote}</p>}</div><span>{index + 1}</span></article> })}</div>
     </main>
   </div>
 }

@@ -6,6 +6,8 @@ Aplicación para practicar con 675 preguntas de cinco exámenes oficiales de 201
 
 La web se publica en https://alexmolina08.github.io/tai/. El acceso por correo usa Supabase Auth. La web lee el banco oficial de Postgres; tests, resultados y favoritos también se guardan directamente allí y se muestran en cualquier dispositivo donde se acceda con el mismo correo. La descarga JSON es solo una copia de seguridad; no hace falta sincronizar manualmente.
 
+En **Fuentes** se pueden subir archivos JSON con preguntas de estudio ajenas a los exámenes. Se validan y guardan en la cuenta de Supabase, y se pueden practicar en tests personalizados. El formato y un ejemplo están en [`docs/uploaded-sources.md`](docs/uploaded-sources.md).
+
 ## Desarrollo
 
 ```sh

@@ -101,7 +101,7 @@ export function buildSolutionsPdf(spec: TestSpec, questions: Question[], answers
       question.correctAnswer?.toUpperCase() ?? '—',
       answers?.[question.id]?.toUpperCase() ?? '—',
       question.topicId,
-      `${question.year} · ${question.sitting} · ${question.section} ${question.originalNumber} · p. ${question.source.page}`,
+      question.origin === 'uploaded' ? `Fuente añadida: ${question.source.pdf} · ${question.originalNumber}` : `${question.year} · ${question.sitting} · ${question.section} ${question.originalNumber} · p. ${question.source.page}`,
     ]),
     styles: { fontSize: 7.5, cellPadding: 1.6, valign: 'middle' },
     headStyles: { fillColor: [23, 50, 77] },

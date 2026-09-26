@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Answer, AttemptRecord, Bank, Question, QuestionProgress } from '../types'
+import type { Answer, AttemptRecord, Bank, Question, QuestionProgress, SavedSource, UploadedSource } from '../types'
+import { parseUploadedSource } from './uploadedSources'
 
 const url = import.meta.env.VITE_SUPABASE_URL || 'https://bjuytltodzdcmnoichgp.supabase.co'
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -29,6 +30,21 @@ export async function loadBank(): Promise<Bank> {
     throw new Error('El banco oficial no está cargado en Supabase.')
   }
   return bank
+}
+
+export async function loadUserSources(program: Bank['program']): Promise<SavedSource[]> {
+  const { data, error } = await client().from('tai_user_sources')
+    .select('payload,uploaded_at').order('uploaded_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map(row => ({
+    source: parseUploadedSource(JSON.stringify(row.payload), program),
+    uploadedAt: row.uploaded_at as string,
+  }))
+}
+
+export async function saveUserSource(source: UploadedSource): Promise<void> {
+  const { error } = await client().rpc('tai_save_user_source', { p_source: source })
+  if (error) throw error
 }
 
 export async function loadProgress(): Promise<{ attempts: AttemptRecord[]; progress: QuestionProgress[] }> {

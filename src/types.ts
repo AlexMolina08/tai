@@ -41,6 +41,31 @@ export interface Question {
   active: boolean
   duplicateOf: string | null
   source: SourceRef
+  origin?: 'official' | 'uploaded'
+  explanation?: string
+  sourceNote?: string
+}
+
+export interface UploadedQuestion {
+  id: string
+  topicId: string
+  prompt: string
+  options: [string, string, string, string]
+  correctAnswer: Answer
+  explanation?: string
+  sourceNote?: string
+}
+
+export interface UploadedSource {
+  schemaVersion: 1
+  sourceId: string
+  title: string
+  questions: UploadedQuestion[]
+}
+
+export interface SavedSource {
+  source: UploadedSource
+  uploadedAt: string
 }
 
 export interface SourceDocument {
