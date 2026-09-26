@@ -145,10 +145,10 @@ function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes 
     <section className="stat-strip">
       <div><span>Banco activo</span><strong>{questions.length}</strong><small>preguntas verificadas</small></div>
       <div><span>Programa vigente</span><strong>33</strong><small>temas · 4 bloques</small></div>
-      <div><span>Documentos</span><strong>{bank.documents.length}</strong><small>PDF inventariados</small></div>
+      <div><span>Exámenes</span><strong>{bank.exams.length}</strong><small>convocatorias reales</small></div>
       <div><span>Último resultado</span><strong>{attempts[0] ? `${formatScore(attempts[0].result.percentage)}%` : '—'}</strong><small>puntuación directa</small></div>
     </section>
-    <section className="section-heading"><div><span className="eyebrow">Programa oficial</span><h2>Banco dividido por temas</h2><p>Los 33 temas de TAILI.pdf. El banco de preguntas está vacío.</p></div><button className="outline-button" onClick={() => onView('questions')}><Search size={16}/> Explorar preguntas</button></section>
+    <section className="section-heading"><div><span className="eyebrow">Programa oficial</span><h2>Banco dividido por temas</h2><p>Los 33 temas de TAILI.pdf con {questions.length} preguntas de exámenes reales.</p></div><button className="outline-button" onClick={() => onView('questions')}><Search size={16}/> Explorar preguntas</button></section>
     <div className="topic-map">{bank.program.map(block => <section key={block.id}>
       <header><b>{block.id}</b><h3>{block.name}</h3><span>{block.topics.reduce((sum, topic) => sum + questions.filter(q => q.topicId === topic.id).length, 0)} preguntas</span></header>
       <div>{block.topics.map(topic => { const count = questions.filter(q => q.topicId === topic.id).length; return <button key={topic.id} onClick={() => onView('questions')}><b>{topic.id}</b><span>{topic.name}</span><i>{count}</i></button> })}</div>
@@ -271,13 +271,33 @@ function TestBuilder({ questions, progressMap, onStart }: { questions: Question[
 }
 
 function HistoricalExams({ onStart }: { onStart: (spec: TestSpec) => void }) {
+  const startSection = (exam: typeof bank.exams[0], sections: string[], title: string) => {
+    const qs = bank.questions.filter(q => q.examId === exam.id && q.active && sections.some(s => q.section === s))
+      .sort((a, b) => a.originalNumber - b.originalNumber)
+    onStart({ id: crypto.randomUUID(), title, mode: 'historical', questionIds: qs.map(q => q.id), durationMinutes: 120, createdAt: new Date().toISOString() })
+  }
   return <>
     <section className="section-heading"><div><span className="eyebrow">Literalidad original</span><h2>Exámenes históricos</h2><p>Las pruebas mantienen su numeración, reservas y procedencia. En modo test solo entran preguntas con respuesta oficial, extracción limpia y clasificación vigente.</p></div></section>
     {!bank.exams.length && <div className="empty-state"><History/><h3>No hay exámenes cargados</h3><p>Las convocatorias aparecerán aquí cuando se añadan preguntas.</p></div>}
     <div className="exam-list">{bank.exams.map(exam => {
-      const questions = bank.questions.filter(q => q.examId === exam.id && q.active && (q.section.startsWith('first') || q.section.startsWith('case_i')))
-      return <article key={exam.id}><div className="year-block">{exam.year}<small>{exam.sitting}</small></div><div><span className="status-pill">Plantilla enlazada</span><h3>{exam.name}</h3><p>{questions.length} preguntas utilizables · ingreso {exam.access}</p></div><button className="outline-button" onClick={() => onStart({ id: crypto.randomUUID(), title: exam.name, mode: 'historical', questionIds: questions.map(q => q.id), durationMinutes: 120, createdAt: new Date().toISOString() })}><Play size={16}/> Realizar</button></article>})}</div>
-    <div className="info-box wide">Los demás PDF históricos están inventariados en Fuentes. Los escaneos sin capa de texto y los formatos aún no validados no se mezclan con el banco activo: así se evita estudiar una transcripción o respuesta dudosa.</div>
+      const allQs = bank.questions.filter(q => q.examId === exam.id)
+      const firstPart = allQs.filter(q => q.active && q.section === 'first')
+      const firstRes = allQs.filter(q => q.active && q.section === 'first_reserve')
+      const sup1 = allQs.filter(q => q.active && q.section === 'case_iii')
+      const sup1Res = allQs.filter(q => q.active && q.section === 'case_iii_reserve')
+      const sup2 = allQs.filter(q => q.active && q.section === 'case_iv')
+      const sup2Res = allQs.filter(q => q.active && q.section === 'case_iv_reserve')
+      const totalActive = firstPart.length + firstRes.length + sup1.length + sup1Res.length + sup2.length + sup2Res.length
+      return <article key={exam.id} className="exam-card-full">
+        <div className="exam-header"><div className="year-block">{exam.year}<small>{exam.sitting}</small></div><div><span className="status-pill">Plantilla enlazada</span><h3>{exam.name}</h3><p>{totalActive} preguntas activas · {allQs.length} totales · ingreso {exam.access}</p></div></div>
+        <div className="exam-sections">
+          <button className="outline-button" onClick={() => startSection(exam, ['first', 'first_reserve'], `${exam.name} · Primera parte`)}><Play size={14}/> Primera parte <small>{firstPart.length}+{firstRes.length} reservas</small></button>
+          <button className="outline-button" onClick={() => startSection(exam, ['case_iii', 'case_iii_reserve'], `${exam.name} · Supuesto I`)}><Play size={14}/> Supuesto I <small>{sup1.length}+{sup1Res.length} reservas</small></button>
+          <button className="outline-button" onClick={() => startSection(exam, ['case_iv', 'case_iv_reserve'], `${exam.name} · Supuesto II`)}><Play size={14}/> Supuesto II <small>{sup2.length}+{sup2Res.length} reservas</small></button>
+          <button className="primary-button" onClick={() => startSection(exam, ['first', 'first_reserve', 'case_iii', 'case_iii_reserve', 'case_iv', 'case_iv_reserve'], `${exam.name} · Completo`)}><Play size={14}/> Examen completo</button>
+        </div>
+      </article>})}</div>
+    <div className="info-box wide">Cada examen incluye primera parte (80+5 reservas), Supuesto I (20+5 reservas) y Supuesto II (20+5 reservas). Las preguntas con clasificación dudosa o normativa derogada se mantienen fuera del banco activo.</div>
   </>
 }
 

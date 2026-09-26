@@ -20,10 +20,13 @@ class BankTest(unittest.TestCase):
     def test_program_has_33_topics(self):
         self.assertEqual(sum(len(block["topics"]) for block in self.bank["program"]), 33)
 
-    def test_bank_is_empty(self):
-        self.assertEqual(self.bank["documents"], [])
-        self.assertEqual(self.bank["exams"], [])
-        self.assertEqual(self.bank["questions"], [])
+    def test_bank_integrity(self):
+        self.assertEqual(len(self.bank["exams"]), 5)
+        self.assertEqual(len(self.bank["questions"]), 675)
+        self.assertTrue(len(self.bank["documents"]) >= 10)
+        for q in self.bank["questions"]:
+            self.assertEqual(len(q["options"]), 4)
+            self.assertIn(q["correctAnswer"], ["a", "b", "c", "d", "anulada", None])
 
 
 

@@ -191,11 +191,18 @@ legend { font: 11px var(--utility); color: var(--muted); text-transform: upperca
 
 .exam-list { display: grid; gap: 10px; }
 .exam-list article { background: white; border: 1px solid var(--line); display: grid; grid-template-columns: 120px 1fr auto; gap: 20px; align-items: center; padding: 18px; }
-.year-block { font: 33px var(--display); border-right: 1px solid var(--line); }
-.year-block small { display: block; text-transform: uppercase; font: 8px var(--utility); color: var(--muted); margin-top: 4px; }
-.exam-list h3 { margin: 5px 0; font: 21px var(--display); }
-.exam-list p { margin: 0; color: var(--muted); font-size: 12px; }
-.status-pill { color: #267359; background: #e0f2eb; padding: 3px 7px; font: 8px var(--utility); text-transform: uppercase; }
+.exam-card-full { display: flex !important; flex-direction: column; grid-template-columns: unset !important; gap: 16px !important; border-radius: 8px; box-shadow: 0 1px 3px rgba(18, 30, 49, 0.05); transition: border-color 0.2s, box-shadow 0.2s; }
+.exam-card-full:hover { border-color: #b0c2d3; box-shadow: 0 4px 12px rgba(18, 30, 49, 0.08); }
+.exam-header { display: flex; gap: 20px; align-items: center; }
+.exam-sections { display: flex; gap: 10px; flex-wrap: wrap; }
+.exam-sections button { flex: 1; min-width: 140px; justify-content: center; gap: 6px; border-radius: 6px; font-weight: 600; padding: 10px 14px; }
+.exam-sections button:hover { transform: translateY(-1px); }
+.exam-sections small { opacity: 0.75; font-size: 11px; margin-left: 5px; font-weight: normal; }
+.year-block { font: 33px var(--display); border-right: 1px solid var(--line); padding-right: 20px; line-height: 1; }
+.year-block small { display: block; text-transform: uppercase; font: 9px var(--utility); letter-spacing: 0.5px; color: var(--muted); margin-top: 6px; }
+.exam-list h3 { margin: 4px 0 6px; font: 21px var(--display); }
+.exam-list p { margin: 0; color: var(--muted); font-size: 12.5px; }
+.status-pill { color: #1e6950; background: #e3f5ec; padding: 3px 8px; border-radius: 4px; font: 8.5px var(--utility); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .progress-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .progress-cards > div { background: white; border: 1px solid var(--line); padding: 20px; display: grid; grid-template-columns: 36px 1fr auto; align-items: center; }

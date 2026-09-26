@@ -1,0 +1,77 @@
+[
+  {
+    "examId": "2019-libre-ordinario",
+    "expected": 135,
+    "extracted": 135,
+    "active": 111,
+    "sectionCounts": {
+      "first": 80,
+      "first_reserve": 5,
+      "case_iii": 20,
+      "case_iii_reserve": 5,
+      "case_iv": 20,
+      "case_iv_reserve": 5
+    },
+    "excluded": 0
+  },
+  {
+    "examId": "2023-libre-ordinario",
+    "expected": 135,
+    "extracted": 135,
+    "active": 111,
+    "sectionCounts": {
+      "first": 80,
+      "first_reserve": 5,
+      "case_iii": 20,
+      "case_iii_reserve": 5,
+      "case_iv": 20,
+      "case_iv_reserve": 5
+    },
+    "excluded": 0
+  },
+  {
+    "examId": "2024-libre-ordinario",
+    "expected": 135,
+    "extracted": 135,
+    "active": 108,
+    "sectionCounts": {
+      "first": 80,
+      "first_reserve": 5,
+      "case_iii": 20,
+      "case_iii_reserve": 5,
+      "case_iv": 20,
+      "case_iv_reserve": 5
+    },
+    "excluded": 0
+  },
+  {
+    "examId": "2025-libre-extraordinario",
+    "expected": 135,
+    "extracted": 135,
+    "active": 119,
+    "sectionCounts": {
+      "first": 80,
+      "first_reserve": 5,
+      "case_iii": 20,
+      "case_iii_reserve": 5,
+      "case_iv": 20,
+      "case_iv_reserve": 5
+    },
+    "excluded": 0
+  },
+  {
+    "examId": "2025-libre-modelo-a",
+    "expected": 135,
+    "extracted": 135,
+    "active": 121,
+    "sectionCounts": {
+      "first": 80,
+      "first_reserve": 5,
+      "case_iii": 20,
+      "case_iii_reserve": 5,
+      "case_iv": 20,
+      "case_iv_reserve": 5
+    },
+    "excluded": 0
+  }
+]
