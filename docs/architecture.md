@@ -8,7 +8,7 @@
 4. Cada pregunta recibe bloque, tema, confianza, vigencia, motivo y estado activo/inactivo.
 5. Se detectan duplicados por texto normalizado.
 6. Se generan `bank.json`, `program.json`, `bank.sqlite` y los informes.
-7. Vite empaqueta el banco con la web estática. IndexedDB conserva únicamente el progreso del usuario.
+7. Vite empaqueta el banco con la web estática. Actualmente el banco está vacío y la compilación no ejecuta el pipeline. IndexedDB se limpia al abrir esta versión.
 
 ## Modelo de examen vigente
 
@@ -34,8 +34,8 @@ Por este último punto la interfaz muestra la puntuación directa exacta y una p
 
 ## Privacidad
 
-No hay servidor de aplicación, telemetría, cuentas ni sincronización. La web funciona íntegramente en el navegador. Exportar el progreso crea un JSON que el usuario puede guardar e importar en otro dispositivo.
+No hay servidor de aplicación, telemetría, cuentas ni sincronización en esta versión. La web funciona íntegramente en el navegador.
 
 ## Cobertura
 
-`reports/coverage-matrix.json` compara por examen el número esperado, extraído y enlazado. La validación comprueba además que cada página de procedencia exista y que ninguna pregunta activa carezca de respuesta o tema.
+Cuando se añadan preguntas, el pipeline podrá generar de nuevo informes de cobertura y validar procedencia, respuestas y temas. No hay informes de preguntas en la versión vacía.

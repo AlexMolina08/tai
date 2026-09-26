@@ -19,11 +19,11 @@ build-bank:
 dev:
 	$(NPM) run dev
 
-test: build-bank
+test:
 	$(PYTHON) -m unittest discover -s tests -p 'test_*.py'
 	$(NPM) run test
 
-build: build-bank
+build:
 	$(NPM) run build
 
 clean:

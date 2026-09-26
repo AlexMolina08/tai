@@ -48,4 +48,4 @@ Cuando una fuente de terceros no deba publicarse, conserva en `sources/` únicam
 - mantener fuera del banco activo cualquier enunciado temporal u obsoleto;
 - inventariar la fuente sin incluir el PDF original en el repositorio público.
 
-La incorporación de `sources/test_t9_examenes.json` aplica este flujo al Tema I.9.
+No hay recopilaciones temáticas cargadas en la versión vacía del preparador.

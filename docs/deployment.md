@@ -1,40 +1,5 @@
-# Despliegue y sincronización
+# Despliegue
 
-## GitHub Pages
+GitHub Pages publica la compilación de main mediante .github/workflows/deploy-pages.yml. El build usa src/data/bank.json, que actualmente contiene 0 preguntas, 0 exámenes y 0 documentos inventariados.
 
-La web se publica mediante `.github/workflows/deploy-pages.yml` en cada envío a `main`. El trabajo instala las dependencias, compila la aplicación y entrega `dist/` a GitHub Pages.
-
-El flujo necesita esta variable y este secreto en el repositorio:
-
-- Variable `VITE_SUPABASE_URL`: URL pública del proyecto Supabase.
-- Secreto `VITE_SUPABASE_PUBLISHABLE_KEY`: clave publicable del proyecto.
-
-No se incluye la contraseña de PostgreSQL en la compilación, en GitHub ni en el navegador.
-
-## Supabase
-
-La migración `supabase/migrations/20260802165000_create_tai_progress_sync.sql` crea:
-
-- `tai_progress_snapshots`, sin acceso directo para usuarios anónimos.
-- La función `tai_sync_progress`, único punto público de lectura y escritura.
-
-La función convierte el código de sincronización en SHA-256 y utiliza ese hash como identificador. El código original no se almacena. Un código largo y aleatorio permite compartir la misma copia entre dispositivos sin crear una cuenta.
-
-La aplicación conserva IndexedDB como fuente local y funciona sin conexión. Cuando hay código configurado:
-
-- sincroniza al abrir la aplicación;
-- sincroniza al cerrar un test o cambiar una favorita;
-- permite una actualización manual desde Progreso.
-
-En caso de dos cambios sin conexión, prevalece la copia con la fecha de modificación más reciente. La exportación JSON continúa disponible como copia de seguridad manual.
-
-## Aplicar la migración de nuevo
-
-Con el proyecto enlazado al CLI:
-
-```bash
-supabase link --project-ref TU_REFERENCIA
-supabase db push
-```
-
-También puede aplicarse por una conexión PostgreSQL con SSL. La contraseña debe introducirse de forma interactiva o mediante un gestor de secretos; nunca debe guardarse en el repositorio.
+No se inyectan variables de Supabase ni se ejecuta la reconstrucción del banco durante el despliegue. La sincronización de progreso está desactivada en el frontend.

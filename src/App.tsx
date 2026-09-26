@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive, BarChart3, BookOpenCheck, Check, ChevronLeft, ChevronRight, Clock3,
-  Cloud, Copy, Download, FileArchive, FileDown, Flag, Heart, History, Home, ListFilter,
-  Menu, Play, RefreshCw, RotateCcw, Search, Settings2, ShieldCheck, Upload, X,
+  Download, FileArchive, FileDown, Flag, Heart, History, Home, ListFilter,
+  Menu, Play, RotateCcw, Search, Settings2, ShieldCheck, X,
 } from 'lucide-react'
 import bankData from './data/bank.json'
 import type { Answer, AttemptRecord, Bank, Question, QuestionProgress, TestSpec } from './types'
 import { formatScore, scoreTest } from './lib/scoring'
-import { applyQuestionOutcomes, db, exportProgress, importProgress, saveAttempt, toggleFavorite } from './lib/storage'
-import {
-  createCloudSyncCode, forgetCloudSyncCode, getCloudSyncCode,
-  isCloudSyncConfigured, synchronizeProgress,
-} from './lib/cloudSync'
+import { applyQuestionOutcomes, db, saveAttempt, toggleFavorite } from './lib/storage'
 
 const bank = bankData as Bank
 type View = 'home' | 'questions' | 'create' | 'history' | 'progress' | 'sources'
@@ -34,15 +30,6 @@ function shuffle<T>(items: T[]): T[] {
   return result
 }
 
-function downloadText(content: string, filename: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
 function App() {
   const [view, setView] = useState<View>('home')
   const [mobileMenu, setMobileMenu] = useState(false)
@@ -61,20 +48,17 @@ function App() {
 
   useEffect(() => {
     const initialize = async () => {
-      await refreshLocal()
-      if (isCloudSyncConfigured() && getCloudSyncCode()) {
-        try { await synchronizeProgress(); await refreshLocal() }
-        catch { /* La copia local sigue disponible si no hay red. */ }
+      if (bank.questions.length === 0) {
+        await Promise.all([db.attempts.clear(), db.progress.clear()])
+        localStorage.removeItem('tai-age-progress-updated-at')
+        localStorage.removeItem('tai-age-supabase-sync-code')
       }
+      await refreshLocal()
     }
     void initialize()
   }, [])
 
   const refreshAndSync = async () => {
-    if (isCloudSyncConfigured() && getCloudSyncCode()) {
-      try { await synchronizeProgress() }
-      catch { setNotice('El progreso está guardado localmente; Supabase no está disponible ahora.') }
-    }
     await refreshLocal()
   }
 
@@ -116,7 +100,7 @@ function App() {
         <header className="topbar">
           <button className="icon-button menu-button" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Abrir menú"><Menu /></button>
           <div><span className="eyebrow">Preparación local · sin cuentas</span><h1>{navItems.find(item => item.id === view)?.label}</h1></div>
-          <button className="soft-button" onClick={() => setView('create')}><Play size={16} /> Empezar test</button>
+          <button className="soft-button" onClick={() => setView('create')} disabled={!activeQuestions.length}><Play size={16} /> Empezar test</button>
         </header>
         {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Cerrar"><X size={16}/></button></div>}
         <div className="page-content">
@@ -124,7 +108,7 @@ function App() {
           {view === 'questions' && <QuestionExplorer questions={bank.questions} program={bank.program} progressMap={progressMap} onFavorite={async id => { await toggleFavorite(id); await refreshAndSync() }} />}
           {view === 'create' && <TestBuilder questions={activeQuestions} progressMap={progressMap} onStart={startTest} />}
           {view === 'history' && <HistoricalExams onStart={startTest} />}
-          {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} onRefresh={refreshLocal} setNotice={setNotice} />}
+          {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} />}
           {view === 'sources' && <SourcesPage />}
         </div>
       </main>
@@ -140,8 +124,8 @@ function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes 
   const quick = () => onStart({ id: crypto.randomUUID(), title: 'Test rápido · 20 preguntas', mode: 'custom', questionIds: shuffle(questions).slice(0, 20).map(q => q.id), createdAt: new Date().toISOString() })
   return <>
     <section className="hero-panel">
-      <div className="hero-copy"><span className="eyebrow light">Sesión de estudio</span><h2>Una pregunta.<br/><em>Una decisión.</em></h2><p>Practica con literalidad oficial, revisa el porqué de cada resultado y conserva tu progreso solo en este dispositivo.</p>
-        <div className="hero-actions"><button className="primary-button" onClick={quick}><Play size={17}/> Test rápido</button><button className="ghost-button" onClick={() => onView('create')}><Settings2 size={17}/> Configurar</button></div>
+      <div className="hero-copy"><span className="eyebrow light">Sesión de estudio</span><h2>Una pregunta.<br/><em>Una decisión.</em></h2><p>{questions.length ? 'Practica con literalidad oficial, revisa el porqué de cada resultado y conserva tu progreso solo en este dispositivo.' : 'El preparador está listo para recibir nuevas preguntas.'}</p>
+        <div className="hero-actions">{questions.length ? <><button className="primary-button" onClick={quick}><Play size={17}/> Test rápido</button><button className="ghost-button" onClick={() => onView('create')}><Settings2 size={17}/> Configurar</button></> : <span>Banco vacío · las preguntas se añadirán próximamente.</span>}</div>
       </div>
       <div className="answer-sheet" aria-label="Resumen de progreso">
         <div className="sheet-header"><span>HOJA DE PROGRESO</span><b>{new Date().toLocaleDateString('es-ES')}</b></div>
@@ -155,17 +139,17 @@ function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes 
       <div><span>Documentos</span><strong>{bank.documents.length}</strong><small>PDF inventariados</small></div>
       <div><span>Último resultado</span><strong>{attempts[0] ? `${formatScore(attempts[0].result.percentage)}%` : '—'}</strong><small>puntuación directa</small></div>
     </section>
-    <section className="section-heading"><div><span className="eyebrow">Programa oficial</span><h2>Banco dividido por temas</h2><p>Los 33 temas de TAILI.pdf, con el número de preguntas utilizables actualmente.</p></div><button className="outline-button" onClick={() => onView('questions')}><Search size={16}/> Explorar preguntas</button></section>
+    <section className="section-heading"><div><span className="eyebrow">Programa oficial</span><h2>Banco dividido por temas</h2><p>Los 33 temas de TAILI.pdf. El banco de preguntas está vacío.</p></div><button className="outline-button" onClick={() => onView('questions')}><Search size={16}/> Explorar preguntas</button></section>
     <div className="topic-map">{bank.program.map(block => <section key={block.id}>
       <header><b>{block.id}</b><h3>{block.name}</h3><span>{block.topics.reduce((sum, topic) => sum + questions.filter(q => q.topicId === topic.id).length, 0)} preguntas</span></header>
       <div>{block.topics.map(topic => { const count = questions.filter(q => q.topicId === topic.id).length; return <button key={topic.id} onClick={() => onView('questions')}><b>{topic.id}</b><span>{topic.name}</span><i>{count}</i></button> })}</div>
     </section>)}</div>
-    <section className="section-heading"><div><span className="eyebrow">Siguiente paso</span><h2>Elige cómo continuar</h2></div></section>
+    {questions.length > 0 && <><section className="section-heading"><div><span className="eyebrow">Siguiente paso</span><h2>Elige cómo continuar</h2></div></section>
     <div className="action-grid">
       <button className="action-card simulation" onClick={() => onView('create')}><span className="card-icon"><Clock3/></span><small>120 minutos</small><h3>Simulacro oficial</h3><p>80 preguntas, supuesto práctico y reservas con la penalización vigente.</p><b>Configurar simulacro <ChevronRight size={17}/></b></button>
       <button className="action-card" onClick={onMistakes}><span className="card-icon"><RotateCcw/></span><small>Repaso inteligente</small><h3>Repetir errores</h3><p>Vuelve sobre las preguntas que más te cuestan, ordenadas por fallos.</p><b>Empezar repaso <ChevronRight size={17}/></b></button>
       <button className="action-card" onClick={() => onView('history')}><span className="card-icon"><History/></span><small>Convocatorias</small><h3>Exámenes históricos</h3><p>Haz una prueba respetando su numeración y procedencia originales.</p><b>Ver exámenes <ChevronRight size={17}/></b></button>
-    </div>
+    </div></>}
   </>
 }
 
@@ -193,6 +177,7 @@ function QuestionExplorer({ questions, program, progressMap, onFavorite }: {
       <select value={access} onChange={e => setAccess(e.target.value)} aria-label="Acceso"><option value="">Todas las vías</option><option value="libre">Ingreso libre</option><option value="promocion_interna">Promoción interna</option></select>
       <select value={status} onChange={e => setStatus(e.target.value)} aria-label="Estado"><option value="active">Banco vigente</option><option value="historical">Con respuesta oficial</option><option value="pending">Pendientes de revisión</option><option value="all">Todas</option></select>
     </div>
+    {!questions.length && <div className="empty-state"><Search/><h3>El banco está vacío</h3><p>Aún no hay preguntas cargadas.</p></div>}
     <div className="question-list">{filtered.slice(0, 200).map(question => {
       const open = expanded === question.id
       return <article key={question.id} className={`question-row ${question.active ? '' : 'excluded'}`}>
@@ -271,7 +256,7 @@ function TestBuilder({ questions, progressMap, onStart }: { questions: Question[
           <div className="info-box">La nota oficial requiere los baremos y cortes que publique la Comisión. Aquí verás la puntuación directa exacta: aciertos − errores/3.</div>
         </>}
       </section>
-      <aside className="start-card"><span className="eyebrow light">Resumen</span><h3>{mode === 'simulation' ? 'Simulacro completo' : `${Math.min(count, eligible.length)} preguntas`}</h3><ul><li><Check/> Respuestas ocultas</li><li><Flag/> Marcas de revisión</li><li><FileDown/> PDF y soluciones</li></ul><button className="primary-button full" onClick={start} disabled={mode === 'custom' && !eligible.length}><Play/> Empezar ahora</button></aside>
+      <aside className="start-card"><span className="eyebrow light">Resumen</span><h3>{mode === 'simulation' ? 'Simulacro completo' : `${Math.min(count, eligible.length)} preguntas`}</h3><ul><li><Check/> Respuestas ocultas</li><li><Flag/> Marcas de revisión</li><li><FileDown/> PDF y soluciones</li></ul><button className="primary-button full" onClick={start} disabled={!questions.length || (mode === 'custom' && !eligible.length)}><Play/> Empezar ahora</button></aside>
     </div>
   </>
 }
@@ -279,6 +264,7 @@ function TestBuilder({ questions, progressMap, onStart }: { questions: Question[
 function HistoricalExams({ onStart }: { onStart: (spec: TestSpec) => void }) {
   return <>
     <section className="section-heading"><div><span className="eyebrow">Literalidad original</span><h2>Exámenes históricos</h2><p>Las pruebas mantienen su numeración, reservas y procedencia. En modo test solo entran preguntas con respuesta oficial, extracción limpia y clasificación vigente.</p></div></section>
+    {!bank.exams.length && <div className="empty-state"><History/><h3>No hay exámenes cargados</h3><p>Las convocatorias aparecerán aquí cuando se añadan preguntas.</p></div>}
     <div className="exam-list">{bank.exams.map(exam => {
       const questions = bank.questions.filter(q => q.examId === exam.id && q.active && (q.section.startsWith('first') || q.section.startsWith('case_i')))
       return <article key={exam.id}><div className="year-block">{exam.year}<small>{exam.sitting}</small></div><div><span className="status-pill">Plantilla enlazada</span><h3>{exam.name}</h3><p>{questions.length} preguntas utilizables · ingreso {exam.access}</p></div><button className="outline-button" onClick={() => onStart({ id: crypto.randomUUID(), title: exam.name, mode: 'historical', questionIds: questions.map(q => q.id), durationMinutes: 120, createdAt: new Date().toISOString() })}><Play size={16}/> Realizar</button></article>})}</div>
@@ -286,69 +272,23 @@ function HistoricalExams({ onStart }: { onStart: (spec: TestSpec) => void }) {
   </>
 }
 
-function ProgressPage({ attempts, progress, questions, onMistakes, onRefresh, setNotice }: { attempts: AttemptRecord[]; progress: QuestionProgress[]; questions: Question[]; onMistakes: () => void; onRefresh: () => Promise<void>; setNotice: (text: string) => void }) {
-  const input = useRef<HTMLInputElement>(null)
-  const [syncCode, setSyncCode] = useState(getCloudSyncCode())
-  const [syncing, setSyncing] = useState(false)
+function ProgressPage({ attempts, progress, questions, onMistakes }: { attempts: AttemptRecord[]; progress: QuestionProgress[]; questions: Question[]; onMistakes: () => void }) {
   const wrong = progress.filter(item => item.wrong > 0).length
   const favorites = progress.filter(item => item.favorite).length
   const unseen = questions.length - progress.filter(item => item.seen).length
-  const doExport = async () => downloadText(await exportProgress(), `progreso-tai-${new Date().toISOString().slice(0, 10)}.json`)
-  const doImport = async (file?: File) => {
-    if (!file) return
-    try { await importProgress(await file.text()); await onRefresh(); setNotice('Progreso importado correctamente. Pulsa sincronizar para subirlo a Supabase.') }
-    catch (error) { setNotice(error instanceof Error ? error.message : 'No se pudo importar el archivo.') }
-  }
-  const syncNow = async (code = syncCode) => {
-    setSyncing(true)
-    try {
-      const result = await synchronizeProgress(code)
-      setSyncCode(getCloudSyncCode())
-      await onRefresh()
-      const messages = {
-        created: 'Copia de progreso creada en Supabase.',
-        uploaded: 'Progreso actualizado en Supabase.',
-        downloaded: 'Se ha descargado la copia más reciente de Supabase.',
-      }
-      setNotice(messages[result.action])
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'No se pudo sincronizar el progreso.')
-    } finally { setSyncing(false) }
-  }
-  const generateCode = () => {
-    const code = createCloudSyncCode()
-    setSyncCode(code)
-    void syncNow(code)
-  }
-  const disconnectCloud = () => {
-    forgetCloudSyncCode()
-    setSyncCode('')
-    setNotice('Sincronización desconectada. El progreso local se conserva.')
-  }
   return <>
-    <section className="section-heading"><div><span className="eyebrow">Guardado local con copia opcional</span><h2>Tu progreso</h2></div><div className="heading-actions"><button className="outline-button" onClick={doExport}><Download size={16}/> Exportar</button><button className="outline-button" onClick={() => input.current?.click()}><Upload size={16}/> Importar</button><input ref={input} hidden type="file" accept="application/json" onChange={e => void doImport(e.target.files?.[0])}/></div></section>
-    <section className="cloud-sync-panel">
-      <div className="cloud-sync-copy"><Cloud/><div><span className="eyebrow">Supabase</span><h3>Sincronización entre dispositivos</h3><p>Usa el mismo código en el Mac, iPhone o iPad. La copia local sigue funcionando sin conexión.</p></div></div>
-      {isCloudSyncConfigured() ? <div className="cloud-sync-controls">
-        <label>Código de sincronización<input value={syncCode} onChange={event => setSyncCode(event.target.value)} placeholder="Mínimo 12 caracteres" autoComplete="off" /></label>
-        <div>
-          <button className="outline-button" onClick={generateCode} disabled={syncing}>Generar</button>
-          <button className="outline-button" onClick={() => void navigator.clipboard.writeText(syncCode).then(() => setNotice('Código copiado.'))} disabled={!syncCode}><Copy size={15}/> Copiar</button>
-          <button className="primary-button" onClick={() => void syncNow()} disabled={syncing || syncCode.trim().length < 12}><RefreshCw size={15} className={syncing ? 'spinning' : ''}/> {syncing ? 'Sincronizando' : 'Sincronizar'}</button>
-          {getCloudSyncCode() && <button className="text-button" onClick={disconnectCloud}>Desconectar</button>}
-        </div>
-      </div> : <div className="info-box">Esta compilación no tiene configurada la conexión con Supabase.</div>}
-    </section>
-    <div className="progress-cards"><div><RotateCcw/><strong>{wrong}</strong><span>Preguntas falladas</span><button onClick={onMistakes}>Repasar</button></div><div><Heart/><strong>{favorites}</strong><span>Favoritas</span></div><div><BookOpenCheck/><strong>{unseen}</strong><span>Nunca vistas</span></div></div>
+    <section className="section-heading"><div><span className="eyebrow">Progreso local</span><h2>Tu progreso</h2></div></section>
+    <div className="progress-cards"><div><RotateCcw/><strong>{wrong}</strong><span>Preguntas falladas</span><button onClick={onMistakes} disabled={!wrong}>Repasar</button></div><div><Heart/><strong>{favorites}</strong><span>Favoritas</span></div><div><BookOpenCheck/><strong>{unseen}</strong><span>Nunca vistas</span></div></div>
     <section className="section-heading compact"><div><h2>Historial local</h2></div></section>
-    {attempts.length ? <div className="attempt-table">{attempts.map(attempt => <article key={attempt.id}><div><small>{new Date(attempt.finishedAt).toLocaleString('es-ES')}</small><strong>{attempt.title}</strong></div><span>{attempt.result.correct} aciertos · {attempt.result.wrong} errores · {attempt.result.blank} blancas</span><b>{formatScore(attempt.result.rawScore)} / {attempt.result.maximumRaw}</b></article>)}</div> : <div className="empty-state"><BarChart3/><h3>Aún no hay resultados</h3><p>Finaliza un test y aparecerá aquí.</p></div>}
+    {attempts.length ? <div className="attempt-table">{attempts.map(attempt => <article key={attempt.id}><div><small>{new Date(attempt.finishedAt).toLocaleString('es-ES')}</small><strong>{attempt.title}</strong></div><span>{attempt.result.correct} aciertos · {attempt.result.wrong} errores · {attempt.result.blank} blancas</span><b>{formatScore(attempt.result.rawScore)} / {attempt.result.maximumRaw}</b></article>)}</div> : <div className="empty-state"><BarChart3/><h3>Aún no hay resultados</h3><p>El historial está vacío.</p></div>}
   </>
 }
 
 function SourcesPage() {
   const statuses = Object.entries(bank.documents.reduce<Record<string, number>>((acc, doc) => ({ ...acc, [doc.status]: (acc[doc.status] ?? 0) + 1 }), {}))
   return <>
-    <section className="section-heading"><div><span className="eyebrow">Auditoría documental</span><h2>Fuentes y estado</h2><p>La carpeta TAI AGE se usa en modo de solo lectura. Cada PDF tiene huella, páginas y estado.</p></div></section>
+    <section className="section-heading"><div><span className="eyebrow">Auditoría documental</span><h2>Fuentes y estado</h2><p>No hay fuentes cargadas en el preparador.</p></div></section>
+    {!bank.documents.length && <div className="empty-state"><Archive/><h3>Sin documentos cargados</h3><p>Esta sección estará disponible cuando se añadan fuentes.</p></div>}
     <div className="source-summary">{statuses.map(([status, count]) => <div key={status}><strong>{count}</strong><span>{status.replaceAll('_', ' ')}</span></div>)}</div>
     <div className="source-table"><div className="source-head"><span>Documento</span><span>Tipo</span><span>Páginas</span><span>Estado</span></div>{bank.documents.map(doc => <div key={doc.id}><span><b>{doc.path.split('/').pop()}</b><small>{doc.path}</small></span><span>{doc.role}</span><span>{doc.pages}</span><span><i className={`status-dot ${doc.status}`}/>{doc.status.replaceAll('_', ' ')}<small>{doc.note}</small></span></div>)}</div>
   </>
