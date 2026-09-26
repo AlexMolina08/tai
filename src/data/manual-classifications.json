@@ -1,0 +1,410 @@
+{
+  "2019-libre-ordinario:first:24": {
+    "topicId": "I.9",
+    "reason": "NEDAES es una solución común de la Administración electrónica para nóminas."
+  },
+  "2019-libre-ordinario:first:25": {
+    "topicId": "II.1",
+    "reason": "ARM es una arquitectura de procesadores RISC."
+  },
+  "2019-libre-ordinario:first:27": {
+    "topicId": "II.2",
+    "reason": "Thunderbolt es conectividad de periféricos."
+  },
+  "2019-libre-ordinario:first:29": {
+    "topicId": "II.3",
+    "reason": "AV1 es un formato de codificación audiovisual."
+  },
+  "2019-libre-ordinario:first:34": {
+    "topicId": "III.1",
+    "reason": "Las reglas de Codd describen el modelo relacional."
+  },
+  "2019-libre-ordinario:first:35": {
+    "topicId": "III.9",
+    "reason": "Los diagramas de flujo de datos pertenecen a la metodología Métrica v3."
+  },
+  "2019-libre-ordinario:first:44": {
+    "topicId": "III.4",
+    "reason": "Decorator es un patrón de diseño orientado a objetos."
+  },
+  "2019-libre-ordinario:first:50": {
+    "topicId": "III.7",
+    "reason": "Ruby on Rails es un framework de aplicaciones web."
+  },
+  "2019-libre-ordinario:first:52": {
+    "topicId": "III.7",
+    "reason": "La sintaxis de comentarios XML pertenece a lenguajes web."
+  },
+  "2019-libre-ordinario:first:59": {
+    "topicId": "II.4",
+    "reason": "apt update administra paquetes del sistema Debian."
+  },
+  "2019-libre-ordinario:first:67": {
+    "topicId": "IV.1",
+    "reason": "ITIL trata la gestión de servicios de TI en la operación de sistemas."
+  },
+  "2019-libre-ordinario:first:76": {
+    "topicId": "IV.4",
+    "reason": "BYOD define la gestión de dispositivos de usuarios."
+  },
+  "2019-libre-ordinario:first:79": {
+    "topicId": "IV.6",
+    "reason": "Scatternet agrupa redes inalámbricas Bluetooth."
+  },
+  "2019-libre-ordinario:case_iii:3": {
+    "topicId": "III.7",
+    "reason": "El atributo required valida un formulario HTML."
+  },
+  "2019-libre-ordinario:case_iii:7": {
+    "topicId": "II.3",
+    "reason": "JSON es un formato de intercambio de información."
+  },
+  "2019-libre-ordinario:case_iii:10": {
+    "topicId": "III.2",
+    "reason": "Keras es una biblioteca usada al programar en Python."
+  },
+  "2019-libre-ordinario:case_iii:11": {
+    "topicId": "III.5",
+    "reason": "StringBuilder es una clase de la plataforma Java."
+  },
+  "2019-libre-ordinario:case_iii_reserve:3": {
+    "topicId": "III.7",
+    "reason": "Django es un framework para desarrollo web."
+  },
+  "2019-libre-ordinario:case_iv:2": {
+    "topicId": "IV.7",
+    "reason": "La clase de una dirección IP pertenece a TCP/IP."
+  },
+  "2019-libre-ordinario:case_iv:3": {
+    "topicId": "IV.7",
+    "reason": "El cálculo de hosts de una subred pertenece a TCP/IP."
+  },
+  "2019-libre-ordinario:case_iv:4": {
+    "topicId": "IV.7",
+    "reason": "El rango utilizable de una subred pertenece a TCP/IP."
+  },
+  "2019-libre-ordinario:case_iv:5": {
+    "topicId": "IV.1",
+    "reason": "El archivo redhat-release identifica la versión del sistema operativo."
+  },
+  "2019-libre-ordinario:case_iv:8": {
+    "topicId": "IV.2",
+    "reason": "V$VERSION se consulta para administrar Oracle."
+  },
+  "2019-libre-ordinario:case_iv:10": {
+    "topicId": "IV.1",
+    "reason": "net localgroup administra grupos locales de Windows."
+  },
+  "2023-libre-ordinario:first:21": {
+    "topicId": "II.2",
+    "reason": "Lightning es un conector de periféricos."
+  },
+  "2023-libre-ordinario:first:25": {
+    "topicId": "II.1",
+    "reason": "CISC es una arquitectura de procesador."
+  },
+  "2023-libre-ordinario:first:30": {
+    "topicId": "II.3",
+    "reason": "Los estándares PDF describen formatos de fichero."
+  },
+  "2023-libre-ordinario:first:32": {
+    "topicId": "II.4",
+    "reason": "Las llamadas RPC entre procesos Windows son una característica del sistema operativo."
+  },
+  "2023-libre-ordinario:first:37": {
+    "topicId": "II.5",
+    "reason": "ANSI/SPARC describe niveles de abstracción de SGBD."
+  },
+  "2023-libre-ordinario:first:40": {
+    "topicId": "II.3",
+    "reason": "Los vectores son estructuras de datos."
+  },
+  "2023-libre-ordinario:first:41": {
+    "topicId": "III.5",
+    "reason": "JDBC es un componente de la plataforma Java."
+  },
+  "2023-libre-ordinario:first:42": {
+    "topicId": "IV.2",
+    "reason": "Las anomalías de lectura son cuestiones de concurrencia en bases de datos."
+  },
+  "2023-libre-ordinario:first:52": {
+    "topicId": "III.6",
+    "reason": "WSIL permite descubrir servicios web."
+  },
+  "2023-libre-ordinario:first:53": {
+    "topicId": "III.7",
+    "reason": "Gecko es un motor de navegador web."
+  },
+  "2023-libre-ordinario:first:59": {
+    "topicId": "III.9",
+    "reason": "La elaboración de manuales de usuario es tarea de Métrica v3."
+  },
+  "2023-libre-ordinario:first:67": {
+    "topicId": "IV.4",
+    "reason": "CMIP se usa para administrar dispositivos de red."
+  },
+  "2023-libre-ordinario:first:69": {
+    "topicId": "IV.5",
+    "reason": "ECDSA es un algoritmo de firma digital."
+  },
+  "2023-libre-ordinario:first:77": {
+    "topicId": "IV.9",
+    "reason": "Un portal cautivo controla el acceso a la red."
+  },
+  "2023-libre-ordinario:first_reserve:1": {
+    "topicId": "IV.10",
+    "reason": "SOHO describe una red local pequeña."
+  },
+  "2023-libre-ordinario:first_reserve:5": {
+    "topicId": "IV.6",
+    "reason": "WPS configura comunicaciones inalámbricas."
+  },
+  "2023-libre-ordinario:case_iii:13": {
+    "topicId": "III.9",
+    "reason": "Selenium automatiza pruebas en el navegador."
+  },
+  "2023-libre-ordinario:case_iii:14": {
+    "topicId": "III.9",
+    "reason": "SonarQube analiza calidad y seguridad del código."
+  },
+  "2023-libre-ordinario:case_iii:15": {
+    "topicId": "IV.8",
+    "reason": "TLS protege las comunicaciones HTTPS."
+  },
+  "2023-libre-ordinario:case_iii:16": {
+    "topicId": "III.7",
+    "reason": "Las notificaciones móviles son una función de aplicaciones multidispositivo."
+  },
+  "2023-libre-ordinario:case_iii:19": {
+    "topicId": "III.8",
+    "reason": "CSRF es una vulnerabilidad de seguridad en aplicaciones web."
+  },
+  "2023-libre-ordinario:case_iii:20": {
+    "topicId": "III.9",
+    "reason": "Jenkins automatiza integración y despliegue."
+  },
+  "2023-libre-ordinario:case_iv:1": {
+    "topicId": "IV.1",
+    "reason": "ipconfig vacía la caché DNS del equipo Windows."
+  },
+  "2023-libre-ordinario:case_iv:11": {
+    "topicId": "IV.5",
+    "reason": "SHA384 es un algoritmo de huella para firma digital."
+  },
+  "2024-libre-ordinario:first:19": {
+    "topicId": "II.1",
+    "reason": "La taxonomía de Flynn clasifica arquitecturas de computadores."
+  },
+  "2024-libre-ordinario:first:20": {
+    "topicId": "II.1",
+    "reason": "La representación hexadecimal es informática básica."
+  },
+  "2024-libre-ordinario:first:46": {
+    "topicId": "III.6",
+    "reason": "La escalabilidad describe una arquitectura distribuida de sistemas."
+  },
+  "2024-libre-ordinario:first:49": {
+    "topicId": "III.7",
+    "reason": "onmouseover es un evento HTML."
+  },
+  "2024-libre-ordinario:first:52": {
+    "topicId": "III.8",
+    "reason": "ATAG trata la accesibilidad de herramientas de autor."
+  },
+  "2024-libre-ordinario:first:56": {
+    "topicId": "IV.1",
+    "reason": "sfc repara archivos protegidos del sistema Windows."
+  },
+  "2024-libre-ordinario:first:57": {
+    "topicId": "IV.10",
+    "reason": "Jumbo frame es una característica de tramas Ethernet."
+  },
+  "2024-libre-ordinario:first:58": {
+    "topicId": "IV.7",
+    "reason": "ARP resuelve direcciones dentro de TCP/IP."
+  },
+  "2024-libre-ordinario:first:69": {
+    "topicId": "IV.5",
+    "reason": "El escaneo de puertos es una técnica de reconocimiento de seguridad."
+  },
+  "2024-libre-ordinario:first:71": {
+    "topicId": "IV.6",
+    "reason": "LPWAN es una familia de comunicaciones inalámbricas."
+  },
+  "2024-libre-ordinario:first:75": {
+    "topicId": "IV.8",
+    "reason": "HTTP 403 es un código del protocolo HTTP."
+  },
+  "2024-libre-ordinario:first_reserve:3": {
+    "topicId": "IV.10",
+    "reason": "RSTP es un protocolo de redes locales Ethernet."
+  },
+  "2024-libre-ordinario:first_reserve:5": {
+    "topicId": "III.7",
+    "reason": "SwiftUI permite crear interfaces de aplicaciones multidispositivo."
+  },
+  "2024-libre-ordinario:case_iii:1": {
+    "topicId": "III.7",
+    "reason": "maxlength es un atributo de formulario HTML."
+  },
+  "2024-libre-ordinario:case_iii:4": {
+    "topicId": "III.1",
+    "reason": "La cardinalidad entre tablas pertenece al modelado de datos."
+  },
+  "2024-libre-ordinario:case_iii:10": {
+    "topicId": "III.9",
+    "reason": "Las herramientas de análisis de código y control de versiones son del ciclo de desarrollo."
+  },
+  "2024-libre-ordinario:case_iii:13": {
+    "topicId": "III.3",
+    "reason": "CREATE TABLE es una sentencia SQL."
+  },
+  "2024-libre-ordinario:case_iii:14": {
+    "topicId": "IV.2",
+    "reason": "El aislamiento transaccional se configura al administrar bases de datos."
+  },
+  "2024-libre-ordinario:case_iii:15": {
+    "topicId": "III.6",
+    "reason": "WS-Security firma mensajes de servicios web SOAP."
+  },
+  "2024-libre-ordinario:case_iii:16": {
+    "topicId": "III.5",
+    "reason": "NuGet instala paquetes de la plataforma .NET."
+  },
+  "2024-libre-ordinario:case_iii_reserve:3": {
+    "topicId": "III.3",
+    "reason": "La selección de adjuntos usa consultas SQL."
+  },
+  "2024-libre-ordinario:case_iv:2": {
+    "topicId": "IV.1",
+    "reason": "fsck repara un sistema de archivos Linux."
+  },
+  "2024-libre-ordinario:case_iv:14": {
+    "topicId": "IV.4",
+    "reason": "El enrolamiento MDM administra dispositivos de usuarios."
+  },
+  "2024-libre-ordinario:case_iv:15": {
+    "topicId": "IV.5",
+    "reason": "La climatización del CPD es infraestructura física de seguridad."
+  },
+  "2024-libre-ordinario:case_iv:19": {
+    "topicId": "IV.2",
+    "reason": "mysql.user permite administrar usuarios y hosts de MySQL."
+  },
+  "2024-libre-ordinario:case_iv_reserve:3": {
+    "topicId": "IV.2",
+    "reason": "La creación de tablas MySQL es una tarea de administración de base de datos."
+  },
+  "2025-libre-extraordinario:first:19": {
+    "topicId": "I.9",
+    "reason": "SCSPv3 es infraestructura común de intermediación administrativa."
+  },
+  "2025-libre-extraordinario:first:23": {
+    "topicId": "II.2",
+    "reason": "La latencia rotacional es una característica de discos HDD."
+  },
+  "2025-libre-extraordinario:first:51": {
+    "topicId": "III.9",
+    "reason": "RACI asigna responsabilidades en un proyecto."
+  },
+  "2025-libre-extraordinario:first:65": {
+    "topicId": "IV.4",
+    "reason": "Jamf Now administra dispositivos móviles Apple."
+  },
+  "2025-libre-extraordinario:first:68": {
+    "topicId": "IV.5",
+    "reason": "El plenum pertenece al acondicionamiento físico del CPD."
+  },
+  "2025-libre-extraordinario:first:69": {
+    "topicId": "IV.10",
+    "reason": "VPLS extiende dominios Ethernet entre redes locales."
+  },
+  "2025-libre-extraordinario:first:70": {
+    "topicId": "IV.6",
+    "reason": "H.245 controla comunicaciones multimedia."
+  },
+  "2025-libre-extraordinario:first:72": {
+    "topicId": "IV.7",
+    "reason": "SIP es un protocolo TCP/IP de señalización."
+  },
+  "2025-libre-extraordinario:first:73": {
+    "topicId": "IV.7",
+    "reason": "CG-NAT comparte direcciones IPv4 mediante traducción de red."
+  },
+  "2025-libre-extraordinario:first:75": {
+    "topicId": "IV.8",
+    "reason": "Telnet es un servicio de Internet sobre TCP."
+  },
+  "2025-libre-extraordinario:case_iii:5": {
+    "topicId": "III.5",
+    "reason": "Entity Framework es un componente .NET."
+  },
+  "2025-libre-extraordinario:case_iii:7": {
+    "topicId": "III.5",
+    "reason": "La operación stream count usa la API de Java."
+  },
+  "2025-libre-extraordinario:case_iii:20": {
+    "topicId": "III.7",
+    "reason": "HTTP 429 responde a límites de una aplicación web."
+  },
+  "2025-libre-extraordinario:case_iii_reserve:2": {
+    "topicId": "III.7",
+    "reason": "La expresión regular valida entrada en el frontend."
+  },
+  "2025-libre-extraordinario:case_iv:1": {
+    "topicId": "IV.1",
+    "reason": "chmod administra permisos del sistema RHEL."
+  },
+  "2025-libre-extraordinario:case_iv:2": {
+    "topicId": "IV.1",
+    "reason": "mkdir crea directorios en el sistema RHEL."
+  },
+  "2025-libre-modelo-a:first:25": {
+    "topicId": "II.2",
+    "reason": "SSD es un dispositivo de almacenamiento."
+  },
+  "2025-libre-modelo-a:first:70": {
+    "topicId": "IV.5",
+    "reason": "EDA es un área física del CPD según ANSI/TIA 942-B."
+  },
+  "2025-libre-modelo-a:case_iii:14": {
+    "topicId": "III.2",
+    "reason": "import es una instrucción del lenguaje Python."
+  },
+  "2025-libre-modelo-a:case_iii_reserve:4": {
+    "topicId": "II.3",
+    "reason": "Greedy es un enfoque de diseño de algoritmos."
+  },
+  "2025-libre-modelo-a:case_iii_reserve:5": {
+    "topicId": "IV.2",
+    "reason": "CREATE USER administra usuarios de Oracle."
+  },
+  "2025-libre-modelo-a:case_iv:2": {
+    "topicId": "IV.7",
+    "reason": "El cálculo de hosts /20 pertenece al direccionamiento TCP/IP."
+  },
+  "2025-libre-modelo-a:case_iv:8": {
+    "topicId": "IV.3",
+    "reason": "docker rm administra contenedores."
+  },
+  "2025-libre-modelo-a:case_iv:11": {
+    "topicId": "IV.7",
+    "reason": "ip route get consulta la ruta TCP/IP efectiva."
+  },
+  "2025-libre-modelo-a:case_iv:14": {
+    "topicId": "IV.2",
+    "reason": "La regla 3-2-1 trata copias de seguridad."
+  },
+  "2025-libre-modelo-a:case_iv:18": {
+    "topicId": "IV.4",
+    "reason": "Active Directory Users and Computers administra usuarios de dominio."
+  },
+  "2025-libre-modelo-a:case_iv:20": {
+    "topicId": "IV.1",
+    "reason": "Copy-Item administra archivos mediante PowerShell."
+  },
+  "2025-libre-modelo-a:case_iv_reserve:4": {
+    "topicId": "IV.4",
+    "reason": "repadmin supervisa la replicación de controladores de dominio."
+  }
+}

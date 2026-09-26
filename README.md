@@ -1,17 +1,21 @@
 # Preparador TAI AGE
 
-Frontend del preparador TAI. El banco está vacío: **0 preguntas, 0 exámenes y 0 documentos inventariados**. Se conserva la estructura de 33 temas y el diseño de la aplicación para incorporar preguntas después.
+Aplicación para practicar con 675 preguntas de cinco exámenes oficiales de 2019, 2023, 2024 y 2025. Hay 670 preguntas utilizables y 5 conservadas fuera de los tests. Las 102 preguntas que estaban en `classification_review` se revisaron una a una; cada asignación y su motivo figuran en `src/data/manual-classifications.json` y `reports/import-examenes-reales.md`.
 
-## Abrir en local
+## Uso
 
-    npm ci
-    npm run dev
+La web se publica en https://alexmolina08.github.io/tai/. El acceso por correo usa Supabase Auth. La web lee el banco oficial de Postgres; tests, resultados y favoritos también se guardan directamente allí y se muestran en cualquier dispositivo donde se acceda con el mismo correo. La descarga JSON es solo una copia de seguridad; no hace falta sincronizar manualmente.
 
-## Comprobar y compilar
+## Desarrollo
 
-    npm test
-    npm run build
+```sh
+npm ci
+cp .env.example .env.local
+npm run dev
+npm test
+npm run build
+```
 
-El build y el despliegue de GitHub Pages usan el banco vacío de src/data/bank.json. No ejecutan OCR ni reconstruyen preguntas. Los PDF originales de TAI AGE/ y TAILI.pdf se conservan como material fuente; no forman parte de la web publicada. El procesamiento de fuentes solo se ejecuta expresamente con make build-bank cuando se decida cargar preguntas nuevas.
+La clave pública del proyecto es segura para incluirla en el frontend. Nunca se usa una clave `service_role` en la web. La migración de base de datos está en `supabase/migrations/`. En GitHub Actions, la variable `VITE_SUPABASE_PUBLISHABLE_KEY` permite la compilación de Pages.
 
-Al abrir esta versión, se elimina el progreso antiguo almacenado en ese navegador. El proyecto ya no usa Supabase. Cuando haya preguntas, el progreso quedará en el navegador y se podrá exportar e importar como JSON para trasladarlo entre dispositivos. La publicación en GitHub Pages se hace desde main mediante .github/workflows/deploy-pages.yml.
+Para reconstruir la importación de las cinco convocatorias de `EXAMENES REALES/`, ejecuta `python3 scripts/import_examenes_reales.py`. Las 102 clasificaciones manuales se aplican antes de la clasificación automática. No ejecuta OCR ni modifica los PDF originales.

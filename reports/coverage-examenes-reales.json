@@ -3,7 +3,7 @@
     "examId": "2019-libre-ordinario",
     "expected": 135,
     "extracted": 135,
-    "active": 111,
+    "active": 135,
     "sectionCounts": {
       "first": 80,
       "first_reserve": 5,
@@ -18,7 +18,7 @@
     "examId": "2023-libre-ordinario",
     "expected": 135,
     "extracted": 135,
-    "active": 111,
+    "active": 135,
     "sectionCounts": {
       "first": 80,
       "first_reserve": 5,
@@ -33,7 +33,7 @@
     "examId": "2024-libre-ordinario",
     "expected": 135,
     "extracted": 135,
-    "active": 109,
+    "active": 135,
     "sectionCounts": {
       "first": 80,
       "first_reserve": 5,
@@ -48,7 +48,7 @@
     "examId": "2025-libre-extraordinario",
     "expected": 135,
     "extracted": 135,
-    "active": 119,
+    "active": 135,
     "sectionCounts": {
       "first": 80,
       "first_reserve": 5,
@@ -63,7 +63,7 @@
     "examId": "2025-libre-modelo-a",
     "expected": 135,
     "extracted": 135,
-    "active": 122,
+    "active": 134,
     "sectionCounts": {
       "first": 80,
       "first_reserve": 5,

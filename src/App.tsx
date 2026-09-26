@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import {
   Archive, BarChart3, BookOpenCheck, Check, ChevronLeft, ChevronRight, Clock3,
   Download, FileArchive, FileDown, Flag, Heart, History, Home, ListFilter,
   Menu, Play, RotateCcw, Search, Settings2, ShieldCheck, Upload, X,
 } from 'lucide-react'
-import bankData from './data/bank.json'
 import type { Answer, AttemptRecord, Bank, Question, QuestionProgress, TestSpec } from './types'
 import { formatScore, scoreTest } from './lib/scoring'
-import { applyQuestionOutcomes, db, exportProgress, importProgress, saveAttempt, toggleFavorite } from './lib/storage'
+import { configured, exportProgress, importProgress, loadBank, loadProgress, recordAttempt, supabase, toggleFavorite } from './lib/storage'
+import { readLegacyProgress } from './lib/legacyProgress'
 
-const bank = bankData as Bank
+let bank: Bank
 type View = 'home' | 'questions' | 'create' | 'history' | 'progress' | 'sources'
 
 const navItems: { id: View; label: string; icon: typeof Home }[] = [
@@ -46,30 +47,72 @@ function App() {
   const [attempts, setAttempts] = useState<AttemptRecord[]>([])
   const [test, setTest] = useState<TestSpec | null>(null)
   const [notice, setNotice] = useState('')
+  const [session, setSession] = useState<Session | null>(null)
+  const [authReady, setAuthReady] = useState(false)
+  const [catalogReady, setCatalogReady] = useState(false)
+  const [catalogError, setCatalogError] = useState('')
+  const [progressReady, setProgressReady] = useState(false)
+  const [progressError, setProgressError] = useState('')
+  const legacyChecked = useRef(false)
 
-  const activeQuestions = useMemo(() => bank.questions.filter(question => question.active), [])
+  const activeQuestions = useMemo(() => catalogReady ? bank.questions.filter(question => question.active) : [], [catalogReady])
   const progressMap = useMemo(() => new Map(progress.map(item => [item.questionId, item])), [progress])
 
-  const refreshLocal = async () => {
-    setProgress(await db.progress.toArray())
-    setAttempts((await db.attempts.orderBy('finishedAt').reverse().toArray()))
+  const refreshRemote = async () => {
+    try {
+      let current = await loadProgress()
+      if (!legacyChecked.current && session?.user.email?.toLowerCase() === 'alexmolinacriado@hotmail.com'
+        && !current.attempts.length && !current.progress.length) {
+        legacyChecked.current = true
+        const legacy = await readLegacyProgress()
+        if (legacy) {
+          await importProgress(JSON.stringify(legacy))
+          current = await loadProgress()
+          setNotice('Se ha trasladado a Supabase el progreso que había en este navegador.')
+        }
+      }
+      setProgress(current.progress)
+      setAttempts(current.attempts)
+      setProgressError('')
+      setProgressReady(true)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo leer Supabase.'
+      setProgressError(message)
+      setNotice(message)
+    }
   }
 
   useEffect(() => {
-    const initialize = async () => {
-      if (bank.questions.length === 0) {
-        await Promise.all([db.attempts.clear(), db.progress.clear()])
-        localStorage.removeItem('tai-age-progress-updated-at')
-        localStorage.removeItem('tai-age-supabase-sync-code')
-      }
-      await refreshLocal()
-    }
-    void initialize()
+    if (!supabase) { setAuthReady(true); return }
+    void supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      setAuthReady(true)
+    })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next)
+      if (!next) { setProgress([]); setAttempts([]); setProgressReady(false); setCatalogReady(false) }
+    })
+    return () => listener.subscription.unsubscribe()
   }, [])
 
-  const refreshAndSync = async () => {
-    await refreshLocal()
-  }
+  useEffect(() => {
+    if (!session) return
+    setCatalogReady(false)
+    void loadBank().then(remoteBank => {
+      bank = remoteBank
+      setCatalogError('')
+      setCatalogReady(true)
+    }).catch(error => setCatalogError(error instanceof Error ? error.message : 'No se pudo leer el banco de Supabase.'))
+    void refreshRemote()
+    const onFocus = () => void refreshRemote()
+    const onVisible = () => { if (document.visibilityState === 'visible') void refreshRemote() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [session?.user.id])
 
   const startTest = (spec: TestSpec) => {
     setTest(spec)
@@ -86,9 +129,17 @@ function App() {
     startTest({ id: crypto.randomUUID(), title: 'Repaso de errores', mode: 'mistakes', questionIds: usable, createdAt: new Date().toISOString() })
   }
 
+  if (!authReady) return <div className="auth-screen">Conectando con Supabase…</div>
+  if (!configured) return <div className="auth-screen"><h1>Falta configurar Supabase</h1><p>La web necesita su clave pública de proyecto para acceder a los datos.</p></div>
+  if (!session) return <AuthScreen />
+  if (catalogError) return <div className="auth-screen"><div className="auth-card"><h1>No se pudo abrir el banco</h1><p>{catalogError}</p><button className="primary-button" onClick={() => window.location.reload()}>Reintentar</button></div></div>
+  if (progressError && !progressReady) return <div className="auth-screen"><div className="auth-card"><h1>No se pudo abrir el progreso</h1><p>{progressError}</p><button className="primary-button" onClick={() => window.location.reload()}>Reintentar</button></div></div>
+  if (!catalogReady) return <div className="auth-screen">Cargando preguntas desde Supabase…</div>
+  if (!progressReady) return <div className="auth-screen">Cargando tu progreso desde Supabase…</div>
+
   if (test) {
     return <TestRunner spec={test} questions={test.questionIds.map(id => bank.questions.find(q => q.id === id)).filter(Boolean) as Question[]}
-      onClose={() => { setTest(null); void refreshAndSync() }} progressMap={progressMap} />
+      onClose={() => { setTest(null); void refreshRemote() }} progressMap={progressMap} />
   }
 
   return (
@@ -108,21 +159,43 @@ function App() {
       <main>
         <header className="topbar">
           <button className="icon-button menu-button" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Abrir menú"><Menu /></button>
-          <div><span className="eyebrow">Preparación local · sin cuentas</span><h1>{navItems.find(item => item.id === view)?.label}</h1></div>
+          <div><span className="eyebrow">Progreso en Supabase · {session.user.email}</span><h1>{navItems.find(item => item.id === view)?.label}</h1></div>
+          <button className="outline-button" onClick={() => void supabase?.auth.signOut()}>Salir</button>
           <button className="soft-button" onClick={() => setView('create')} disabled={!activeQuestions.length}><Play size={16} /> Empezar test</button>
         </header>
         {notice && <div className="notice" role="status"><span>{notice}</span><button onClick={() => setNotice('')} aria-label="Cerrar"><X size={16}/></button></div>}
         <div className="page-content">
           {view === 'home' && <Dashboard questions={activeQuestions} attempts={attempts} progress={progress} onView={setView} onStart={startTest} onMistakes={repeatMistakes} />}
-          {view === 'questions' && <QuestionExplorer questions={bank.questions} program={bank.program} progressMap={progressMap} onFavorite={async id => { await toggleFavorite(id); await refreshAndSync() }} />}
+          {view === 'questions' && <QuestionExplorer questions={bank.questions} program={bank.program} progressMap={progressMap} onFavorite={async id => { try { await toggleFavorite(id); await refreshRemote() } catch (error) { setNotice(error instanceof Error ? error.message : 'No se pudo guardar el favorito.') } }} />}
           {view === 'create' && <TestBuilder questions={activeQuestions} progressMap={progressMap} onStart={startTest} />}
           {view === 'history' && <HistoricalExams onStart={startTest} />}
-          {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} onRefresh={refreshLocal} setNotice={setNotice} />}
+          {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} onRefresh={refreshRemote} setNotice={setNotice} />}
           {view === 'sources' && <SourcesPage />}
         </div>
       </main>
     </div>
   )
+}
+
+function AuthScreen() {
+  const [email, setEmail] = useState('alexmolinacriado@hotmail.com')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+  const sendLink = async () => {
+    if (!supabase) return
+    setBusy(true)
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    })
+    setBusy(false)
+    setMessage(error ? error.message : 'Te hemos enviado un enlace de acceso. Ábrelo en este dispositivo.')
+  }
+  return <main className="auth-screen"><div className="auth-card"><div className="brand-mark"><span>TAI</span><i>1188</i></div>
+    <h1>Tu preparador, en todos tus dispositivos</h1><p>Accede con el mismo correo en el Mac y en el móvil. Tus tests, resultados y favoritos se guardan en Supabase.</p>
+    <label>Correo electrónico<input type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></label>
+    <button className="primary-button" disabled={busy || !email.includes('@')} onClick={() => void sendLink()}>{busy ? 'Enviando…' : 'Enviar enlace de acceso'}</button>
+    {message && <p role="status">{message}</p>}</div></main>
 }
 
 function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes }: {
@@ -133,7 +206,7 @@ function Dashboard({ questions, attempts, progress, onView, onStart, onMistakes 
   const quick = () => onStart({ id: crypto.randomUUID(), title: 'Test rápido · 20 preguntas', mode: 'custom', questionIds: shuffle(questions).slice(0, 20).map(q => q.id), createdAt: new Date().toISOString() })
   return <>
     <section className="hero-panel">
-      <div className="hero-copy"><span className="eyebrow light">Sesión de estudio</span><h2>Una pregunta.<br/><em>Una decisión.</em></h2><p>{questions.length ? 'Practica con literalidad oficial, revisa el porqué de cada resultado y conserva tu progreso solo en este dispositivo.' : 'El preparador está listo para recibir nuevas preguntas.'}</p>
+      <div className="hero-copy"><span className="eyebrow light">Sesión de estudio</span><h2>Una pregunta.<br/><em>Una decisión.</em></h2><p>{questions.length ? 'Practica con preguntas de exámenes reales. Tu progreso se guarda en Supabase y aparece en tus dispositivos al acceder con el mismo correo.' : 'El preparador está listo para recibir nuevas preguntas.'}</p>
         <div className="hero-actions">{questions.length ? <><button className="primary-button" onClick={quick}><Play size={17}/> Test rápido</button><button className="ghost-button" onClick={() => onView('create')}><Settings2 size={17}/> Configurar</button></> : <span>Banco vacío · las preguntas se añadirán próximamente.</span>}</div>
       </div>
       <div className="answer-sheet" aria-label="Resumen de progreso">
@@ -313,9 +386,9 @@ function ProgressPage({ attempts, progress, questions, onMistakes, onRefresh, se
     catch (error) { setNotice(error instanceof Error ? error.message : 'No se pudo importar el archivo.') }
   }
   return <>
-    <section className="section-heading"><div><span className="eyebrow">Progreso local</span><h2>Tu progreso</h2><p>Cuando haya preguntas, podrás guardar una copia JSON y abrirla en otro dispositivo.</p></div><div className="heading-actions"><button className="outline-button" onClick={() => void doExport()} disabled={!questions.length}><Download size={16}/> Exportar</button><button className="outline-button" onClick={() => input.current?.click()} disabled={!questions.length}><Upload size={16}/> Importar</button><input ref={input} hidden type="file" accept="application/json" onChange={e => void doImport(e.target.files?.[0])}/></div></section>
+    <section className="section-heading"><div><span className="eyebrow">Progreso en Supabase</span><h2>Tu progreso</h2><p>Los resultados se guardan directamente en tu cuenta. También puedes descargar una copia JSON.</p></div><div className="heading-actions"><button className="outline-button" onClick={() => void doExport()} disabled={!questions.length}><Download size={16}/> Exportar copia</button><button className="outline-button" onClick={() => input.current?.click()} disabled={!questions.length}><Upload size={16}/> Importar copia anterior</button><input ref={input} hidden type="file" accept="application/json" onChange={e => void doImport(e.target.files?.[0])}/></div></section>
     <div className="progress-cards"><div><RotateCcw/><strong>{wrong}</strong><span>Preguntas falladas</span><button onClick={onMistakes} disabled={!wrong}>Repasar</button></div><div><Heart/><strong>{favorites}</strong><span>Favoritas</span></div><div><BookOpenCheck/><strong>{unseen}</strong><span>Nunca vistas</span></div></div>
-    <section className="section-heading compact"><div><h2>Historial local</h2></div></section>
+    <section className="section-heading compact"><div><h2>Historial</h2></div></section>
     {attempts.length ? <div className="attempt-table">{attempts.map(attempt => <article key={attempt.id}><div><small>{new Date(attempt.finishedAt).toLocaleString('es-ES')}</small><strong>{attempt.title}</strong></div><span>{attempt.result.correct} aciertos · {attempt.result.wrong} errores · {attempt.result.blank} blancas</span><b>{formatScore(attempt.result.rawScore)} / {attempt.result.maximumRaw}</b></article>)}</div> : <div className="empty-state"><BarChart3/><h3>Aún no hay resultados</h3><p>El historial está vacío.</p></div>}
   </>
 }
@@ -336,6 +409,7 @@ function TestRunner({ spec, questions, onClose, progressMap }: { spec: TestSpec;
   const [marked, setMarked] = useState<Set<string>>(new Set())
   const [finished, setFinished] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [saveError, setSaveError] = useState('')
   const startTime = useRef(Date.now())
   const question = questions[index]
   const isTestReserve = question?.isReserve || (spec.mode === 'simulation' && ((index >= 80 && index < 85) || index >= 105))
@@ -348,16 +422,21 @@ function TestRunner({ spec, questions, onClose, progressMap }: { spec: TestSpec;
   const finish = async () => {
     const finalResult = scoreTest(questions, answers, bank.examConfig.wrongPenalty)
     const attempt: AttemptRecord = { id: spec.id, title: spec.title, mode: spec.mode, finishedAt: new Date().toISOString(), durationSeconds: elapsed, questionIds: questions.map(q => q.id), answers, marked: [...marked], result: finalResult }
-    await saveAttempt(attempt)
-    await applyQuestionOutcomes(questions, answers)
-    setFinished(true)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      await recordAttempt(attempt, questions, answers)
+      setSaveError('')
+      setFinished(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'No se pudo guardar el test. Inténtalo de nuevo.')
+    }
   }
   if (!question) return <div className="test-shell"><div className="empty-state"><X/><h2>No hay preguntas disponibles</h2><button className="primary-button" onClick={onClose}>Volver</button></div></div>
   if (finished) return <ResultScreen spec={spec} questions={questions} answers={answers} result={result} onClose={onClose}/>
   const remaining = spec.durationMinutes ? spec.durationMinutes * 60 - elapsed : null
   return <div className="test-shell">
     <header className="test-header"><button className="icon-button" onClick={onClose} aria-label="Salir"><X/></button><div><small>En curso</small><strong>{spec.title}</strong></div><div className={`timer ${remaining !== null && remaining < 600 ? 'urgent' : ''}`}><Clock3/>{remaining === null ? formatTime(elapsed) : formatTime(Math.max(0, remaining))}</div></header>
+    {saveError && <div className="notice" role="alert">{saveError}</div>}
     <div className="test-layout">
       <main className="test-main"><div className="question-kicker"><span>{question.topicId} · {topicName(question.topicId)}</span><span>{isTestReserve ? 'Reserva · ' : ''}Pregunta {index + 1} de {questions.length}</span></div><h1>{question.prompt}</h1>
         <div className="answer-options">{question.options.map((option, optionIndex) => { const letter = String.fromCharCode(97 + optionIndex) as Answer; return <label key={letter} className={answers[question.id] === letter ? 'selected' : ''}><input type="radio" name={question.id} checked={answers[question.id] === letter} onChange={() => setAnswers({ ...answers, [question.id]: letter })}/><b>{letter.toUpperCase()}</b><span>{option}</span></label>})}</div>

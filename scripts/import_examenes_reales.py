@@ -197,6 +197,13 @@ TOPIC_OVERRIDES: dict[str, tuple[str, float, str]] = {
     "2019-libre-ordinario:first:77": ("I.8", 1.0, "curacion_manual_verificada"),
 }
 
+# Decisiones individuales tras leer enunciado, opciones y programa oficial.
+# Se mantienen fuera del clasificador automático para que una nueva importación
+# reproduzca exactamente la revisión humana.
+MANUAL_CLASSIFICATIONS = json.loads(
+    (DATA / "manual-classifications.json").read_text(encoding="utf-8")
+)
+
 
 def folded(value: str) -> str:
     """Normaliza para búsqueda: minúsculas, sin acentos."""
@@ -437,7 +444,10 @@ def build_bank() -> tuple[dict, list[dict], list[dict]]:
             qid = f"{exam['id']}:{spec['key']}:{rq['number']}"
 
             # Classification
-            if qid in TOPIC_OVERRIDES:
+            if qid in MANUAL_CLASSIFICATIONS:
+                topic = MANUAL_CLASSIFICATIONS[qid]["topicId"]
+                confidence, method = 1.0, "revision_manual_2026_09_26"
+            elif qid in TOPIC_OVERRIDES:
                 topic, confidence, method = TOPIC_OVERRIDES[qid]
             else:
                 topic, confidence, method = classify(
@@ -461,7 +471,8 @@ def build_bank() -> tuple[dict, list[dict], list[dict]]:
                 active = False
             else:
                 status = "valid"
-                reason = "Respuesta oficial enlazada y clasificación compatible con el programa vigente"
+                reason = (MANUAL_CLASSIFICATIONS[qid]["reason"] if qid in MANUAL_CLASSIFICATIONS
+                          else "Respuesta oficial enlazada y clasificación compatible con el programa vigente")
                 active = True
 
             question = {
@@ -635,6 +646,21 @@ def generate_report(
             count = topic_counts.get(topic["id"], 0)
             lines.append(f"- **{topic['id']}**: {count} preguntas")
         lines.append("")
+
+    lines.append("## Clasificación manual de preguntas pendientes")
+    lines.append("")
+    lines.append("Se leyeron individualmente los 102 enunciados, opciones y respuestas de `classification_review`,")
+    lines.append("y se cotejó su materia con los 33 temas de TAILI.pdf. Las decisiones siguientes son explícitas;")
+    lines.append("el clasificador de reglas no participa en ellas. Clasificar no equivale a verificar de nuevo la vigencia")
+    lines.append("material de cada respuesta oficial.")
+    lines.append("")
+    lines.append("| Pregunta | Tema | Motivo |")
+    lines.append("|---|---|---|")
+    for q in bank["questions"]:
+        if q["id"] in MANUAL_CLASSIFICATIONS:
+            decision = MANUAL_CLASSIFICATIONS[q["id"]]
+            lines.append(f"| `{q['id']}` | {decision['topicId']} | {decision['reason']} |")
+    lines.append("")
 
     if excluded:
         lines.append("## Preguntas rechazadas en parsing")

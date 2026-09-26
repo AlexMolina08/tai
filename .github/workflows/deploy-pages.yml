@@ -24,7 +24,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Comprobar configuración de Supabase
+        env:
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://bjuytltodzdcmnoichgp.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

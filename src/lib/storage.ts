@@ -1,7 +1,18 @@
-import Dexie, { type EntityTable } from 'dexie'
-import type { Answer, AttemptRecord, Question, QuestionProgress } from '../types'
+import { createClient } from '@supabase/supabase-js'
+import type { Answer, AttemptRecord, Bank, Question, QuestionProgress } from '../types'
 
-const LOCAL_UPDATED_AT_KEY = 'tai-age-progress-updated-at'
+const url = import.meta.env.VITE_SUPABASE_URL || 'https://bjuytltodzdcmnoichgp.supabase.co'
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+
+export const configured = Boolean(key)
+export const supabase = configured ? createClient(url, key, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+}) : null
+
+function client() {
+  if (!supabase) throw new Error('Falta la clave pública de Supabase en el despliegue.')
+  return supabase
+}
 
 export interface ProgressSnapshot {
   schemaVersion: 1
@@ -10,114 +21,64 @@ export interface ProgressSnapshot {
   progress: QuestionProgress[]
 }
 
-export const db = new Dexie('tai-age-preparador') as Dexie & {
-  attempts: EntityTable<AttemptRecord, 'id'>
-  progress: EntityTable<QuestionProgress, 'questionId'>
+export async function loadBank(): Promise<Bank> {
+  const { data, error } = await client().from('tai_catalog').select('payload').eq('id', 'official').single()
+  if (error) throw error
+  const bank = data?.payload as Bank | undefined
+  if (!bank || !Array.isArray(bank.questions) || !Array.isArray(bank.program)) {
+    throw new Error('El banco oficial no está cargado en Supabase.')
+  }
+  return bank
 }
 
-db.version(1).stores({
-  attempts: 'id, finishedAt, mode',
-  progress: 'questionId, wrong, favorite, lastSeenAt',
-})
-
-export async function saveAttempt(attempt: AttemptRecord): Promise<void> {
-  await db.transaction('rw', db.attempts, db.progress, async () => {
-    await db.attempts.put(attempt)
-    for (const questionId of attempt.questionIds) {
-      const previous = await db.progress.get(questionId)
-      const answer = attempt.answers[questionId]
-      const questionResult = Object.entries(attempt.result.byTopic)
-      void questionResult
-      await db.progress.put({
-        questionId,
-        seen: (previous?.seen ?? 0) + 1,
-        correct: (previous?.correct ?? 0),
-        wrong: (previous?.wrong ?? 0),
-        favorite: previous?.favorite ?? false,
-        lastSeenAt: attempt.finishedAt,
-      })
-      void answer
-    }
-  })
-  markLocalProgressChanged()
+export async function loadProgress(): Promise<{ attempts: AttemptRecord[]; progress: QuestionProgress[] }> {
+  const api = client()
+  const [attemptRows, progressRows] = await Promise.all([
+    api.from('tai_attempts').select('payload').order('finished_at', { ascending: false }),
+    api.from('tai_question_progress').select('question_id,seen,correct,wrong,favorite,last_seen_at'),
+  ])
+  if (attemptRows.error) throw attemptRows.error
+  if (progressRows.error) throw progressRows.error
+  return {
+    attempts: (attemptRows.data ?? []).map(row => row.payload as AttemptRecord),
+    progress: (progressRows.data ?? []).map(row => ({
+      questionId: row.question_id as string,
+      seen: row.seen as number,
+      correct: row.correct as number,
+      wrong: row.wrong as number,
+      favorite: row.favorite as boolean,
+      lastSeenAt: row.last_seen_at as string | undefined,
+    })),
+  }
 }
 
-export async function applyQuestionOutcomes(
-  questions: Question[],
-  answers: Record<string, Answer>,
-): Promise<void> {
-  await db.transaction('rw', db.progress, async () => {
-    for (const question of questions) {
-      const previous = await db.progress.get(question.id)
-      const answer = answers[question.id]
-      await db.progress.put({
-        questionId: question.id,
-        seen: Math.max(1, previous?.seen ?? 0),
-        correct: (previous?.correct ?? 0) + (answer === question.correctAnswer ? 1 : 0),
-        wrong: (previous?.wrong ?? 0) + (answer && answer !== question.correctAnswer ? 1 : 0),
-        favorite: previous?.favorite ?? false,
-        lastSeenAt: new Date().toISOString(),
-      })
-    }
-  })
-  markLocalProgressChanged()
+export async function recordAttempt(attempt: AttemptRecord, questions: Question[], answers: Record<string, Answer>): Promise<void> {
+  const outcomes = questions.map(q => ({
+    questionId: q.id,
+    outcome: !answers[q.id] ? 'blank' : answers[q.id] === q.correctAnswer ? 'correct' : 'wrong',
+  }))
+  const { error } = await client().rpc('tai_record_attempt', { p_attempt: attempt, p_outcomes: outcomes })
+  if (error) throw error
 }
 
 export async function toggleFavorite(questionId: string): Promise<boolean> {
-  const previous = await db.progress.get(questionId)
-  const favorite = !(previous?.favorite ?? false)
-  await db.progress.put({
-    questionId,
-    seen: previous?.seen ?? 0,
-    correct: previous?.correct ?? 0,
-    wrong: previous?.wrong ?? 0,
-    favorite,
-    lastSeenAt: new Date().toISOString(),
-  })
-  markLocalProgressChanged()
-  return favorite
-}
-
-export async function getProgressSnapshot(): Promise<ProgressSnapshot> {
-  return {
-    schemaVersion: 1,
-    exportedAt: new Date().toISOString(),
-    attempts: await db.attempts.toArray(),
-    progress: await db.progress.toArray(),
-  }
+  const { data, error } = await client().rpc('tai_toggle_favorite', { p_question_id: questionId })
+  if (error) throw error
+  return Boolean(data)
 }
 
 export async function exportProgress(): Promise<string> {
-  return JSON.stringify(await getProgressSnapshot(), null, 2)
-}
-
-export async function replaceProgressSnapshot(parsed: ProgressSnapshot, updatedAt = new Date().toISOString()): Promise<void> {
-  if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.attempts) || !Array.isArray(parsed.progress)) {
-    throw new Error('El archivo no es una copia de progreso compatible.')
-  }
-  await db.transaction('rw', db.attempts, db.progress, async () => {
-    await db.attempts.clear()
-    await db.progress.clear()
-    await db.attempts.bulkPut(parsed.attempts)
-    await db.progress.bulkPut(parsed.progress)
-  })
-  localStorage.setItem(LOCAL_UPDATED_AT_KEY, updatedAt)
+  const current = await loadProgress()
+  return JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), ...current } satisfies ProgressSnapshot, null, 2)
 }
 
 export async function importProgress(raw: string): Promise<void> {
-  await replaceProgressSnapshot(JSON.parse(raw) as ProgressSnapshot)
-}
-
-export function markLocalProgressChanged(at = new Date().toISOString()): void {
-  localStorage.setItem(LOCAL_UPDATED_AT_KEY, at)
-}
-
-export async function getLocalProgressUpdatedAt(): Promise<string> {
-  const stored = localStorage.getItem(LOCAL_UPDATED_AT_KEY)
-  if (stored) return stored
-  const [attempt, progress] = await Promise.all([
-    db.attempts.orderBy('finishedAt').last(),
-    db.progress.orderBy('lastSeenAt').last(),
-  ])
-  return [attempt?.finishedAt, progress?.lastSeenAt].filter(Boolean).sort().at(-1) ?? '1970-01-01T00:00:00.000Z'
+  const parsed = JSON.parse(raw) as ProgressSnapshot
+  if (parsed.schemaVersion !== 1 || !Array.isArray(parsed.attempts) || !Array.isArray(parsed.progress)) {
+    throw new Error('El archivo no es una copia de progreso compatible.')
+  }
+  const { error } = await client().rpc('tai_import_progress', {
+    p_attempts: parsed.attempts, p_progress: parsed.progress,
+  })
+  if (error) throw error
 }

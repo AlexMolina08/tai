@@ -26,6 +26,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, label:has(input
 button:disabled { cursor: not-allowed; opacity: .45; }
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 238px 1fr; }
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: linear-gradient(135deg, #0d2338, #254d69); color: white; }
+.auth-card { width: min(100%, 460px); padding: clamp(25px, 5vw, 42px); background: white; color: var(--ink); box-shadow: 0 25px 80px #07192955; }
+.auth-card .brand-mark { background: var(--ink-dark); color: white; margin-bottom: 24px; }
+.auth-card h1 { font: 500 34px/1.1 var(--display); margin: 0 0 14px; }
+.auth-card p { color: var(--muted); line-height: 1.55; }
+.auth-card label { display: grid; gap: 8px; font-weight: 650; margin: 24px 0 14px; }
+.auth-card input { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 13px; }
+.auth-card .primary-button { width: 100%; min-height: 46px; }
 .sidebar { position: sticky; top: 0; height: 100vh; background: var(--ink-dark); color: white; padding: 28px 18px 20px; display: flex; flex-direction: column; z-index: 30; }
 .brand { display: flex; gap: 12px; align-items: center; padding: 0 6px 28px; border-bottom: 1px solid #ffffff1c; }
 .brand-mark { width: 52px; height: 52px; border: 1px solid #ffffff55; display: grid; place-content: center; position: relative; }
