@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Archive, BarChart3, BookOpenCheck, Check, ChevronLeft, ChevronRight, Clock3,
   Download, FileArchive, FileDown, Flag, Heart, History, Home, ListFilter,
-  Menu, Play, RotateCcw, Search, Settings2, ShieldCheck, X,
+  Menu, Play, RotateCcw, Search, Settings2, ShieldCheck, Upload, X,
 } from 'lucide-react'
 import bankData from './data/bank.json'
 import type { Answer, AttemptRecord, Bank, Question, QuestionProgress, TestSpec } from './types'
 import { formatScore, scoreTest } from './lib/scoring'
-import { applyQuestionOutcomes, db, saveAttempt, toggleFavorite } from './lib/storage'
+import { applyQuestionOutcomes, db, exportProgress, importProgress, saveAttempt, toggleFavorite } from './lib/storage'
 
 const bank = bankData as Bank
 type View = 'home' | 'questions' | 'create' | 'history' | 'progress' | 'sources'
@@ -28,6 +28,15 @@ function shuffle<T>(items: T[]): T[] {
     ;[result[index], result[random]] = [result[random], result[index]]
   }
   return result
+}
+
+function downloadText(content: string, filename: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type: 'application/json' }))
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
 
 function App() {
@@ -108,7 +117,7 @@ function App() {
           {view === 'questions' && <QuestionExplorer questions={bank.questions} program={bank.program} progressMap={progressMap} onFavorite={async id => { await toggleFavorite(id); await refreshAndSync() }} />}
           {view === 'create' && <TestBuilder questions={activeQuestions} progressMap={progressMap} onStart={startTest} />}
           {view === 'history' && <HistoricalExams onStart={startTest} />}
-          {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} />}
+          {view === 'progress' && <ProgressPage attempts={attempts} progress={progress} questions={activeQuestions} onMistakes={repeatMistakes} onRefresh={refreshLocal} setNotice={setNotice} />}
           {view === 'sources' && <SourcesPage />}
         </div>
       </main>
@@ -272,12 +281,19 @@ function HistoricalExams({ onStart }: { onStart: (spec: TestSpec) => void }) {
   </>
 }
 
-function ProgressPage({ attempts, progress, questions, onMistakes }: { attempts: AttemptRecord[]; progress: QuestionProgress[]; questions: Question[]; onMistakes: () => void }) {
+function ProgressPage({ attempts, progress, questions, onMistakes, onRefresh, setNotice }: { attempts: AttemptRecord[]; progress: QuestionProgress[]; questions: Question[]; onMistakes: () => void; onRefresh: () => Promise<void>; setNotice: (text: string) => void }) {
+  const input = useRef<HTMLInputElement>(null)
   const wrong = progress.filter(item => item.wrong > 0).length
   const favorites = progress.filter(item => item.favorite).length
   const unseen = questions.length - progress.filter(item => item.seen).length
+  const doExport = async () => downloadText(await exportProgress(), `progreso-tai-${new Date().toISOString().slice(0, 10)}.json`)
+  const doImport = async (file?: File) => {
+    if (!file || !questions.length) return
+    try { await importProgress(await file.text()); await onRefresh(); setNotice('Progreso importado correctamente.') }
+    catch (error) { setNotice(error instanceof Error ? error.message : 'No se pudo importar el archivo.') }
+  }
   return <>
-    <section className="section-heading"><div><span className="eyebrow">Progreso local</span><h2>Tu progreso</h2></div></section>
+    <section className="section-heading"><div><span className="eyebrow">Progreso local</span><h2>Tu progreso</h2><p>Cuando haya preguntas, podrás guardar una copia JSON y abrirla en otro dispositivo.</p></div><div className="heading-actions"><button className="outline-button" onClick={() => void doExport()} disabled={!questions.length}><Download size={16}/> Exportar</button><button className="outline-button" onClick={() => input.current?.click()} disabled={!questions.length}><Upload size={16}/> Importar</button><input ref={input} hidden type="file" accept="application/json" onChange={e => void doImport(e.target.files?.[0])}/></div></section>
     <div className="progress-cards"><div><RotateCcw/><strong>{wrong}</strong><span>Preguntas falladas</span><button onClick={onMistakes} disabled={!wrong}>Repasar</button></div><div><Heart/><strong>{favorites}</strong><span>Favoritas</span></div><div><BookOpenCheck/><strong>{unseen}</strong><span>Nunca vistas</span></div></div>
     <section className="section-heading compact"><div><h2>Historial local</h2></div></section>
     {attempts.length ? <div className="attempt-table">{attempts.map(attempt => <article key={attempt.id}><div><small>{new Date(attempt.finishedAt).toLocaleString('es-ES')}</small><strong>{attempt.title}</strong></div><span>{attempt.result.correct} aciertos · {attempt.result.wrong} errores · {attempt.result.blank} blancas</span><b>{formatScore(attempt.result.rawScore)} / {attempt.result.maximumRaw}</b></article>)}</div> : <div className="empty-state"><BarChart3/><h3>Aún no hay resultados</h3><p>El historial está vacío.</p></div>}

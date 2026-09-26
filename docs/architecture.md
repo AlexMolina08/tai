@@ -34,7 +34,7 @@ Por este último punto la interfaz muestra la puntuación directa exacta y una p
 
 ## Privacidad
 
-No hay servidor de aplicación, telemetría, cuentas ni sincronización en esta versión. La web funciona íntegramente en el navegador.
+No hay servidor de aplicación, telemetría, cuentas ni sincronización automática en esta versión. La web funciona íntegramente en el navegador. Cuando se incorporen preguntas, el progreso local podrá trasladarse entre dispositivos mediante exportación e importación JSON.
 
 ## Cobertura
 
